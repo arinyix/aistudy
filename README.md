@@ -450,5 +450,4 @@ O arquivo `seed.sql` inclui usuários de teste:
 **Desenvolvido com ❤️ em PHP, JavaScript e IA**
 
 *Versão 1.0 - Sistema completo de estudos inteligentes* 🧠✨
-#   a i s t u d y  
- 
+#
