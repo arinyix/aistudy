@@ -34,6 +34,10 @@ class Task {
         // Se material_estudo já é string JSON, não codificar novamente
         if (is_string($this->material_estudo)) {
             // Já é JSON, usar como está
+            if (json_decode($this->material_estudo) === null) {
+                // Se não é JSON válido, codificar como array vazio
+                $this->material_estudo = json_encode([]);
+            }
         } else {
             // É array, codificar para JSON
             $this->material_estudo = json_encode($this->material_estudo);
@@ -48,8 +52,14 @@ class Task {
         
         if($stmt->execute()) {
             return $this->conn->lastInsertId();
+        } else {
+            // Debug: mostrar erro específico
+            $errorInfo = $stmt->errorInfo();
+            error_log("Erro ao criar task: " . $errorInfo[2]);
+            error_log("Query: " . $query);
+            error_log("Dados: routine_id={$this->routine_id}, titulo={$this->titulo}, descricao={$this->descricao}, dia_estudo={$this->dia_estudo}, ordem={$this->ordem}");
+            return false;
         }
-        return false;
     }
     
     public function getRoutineTasks($routine_id) {

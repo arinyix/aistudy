@@ -42,15 +42,25 @@ if ($_POST) {
                     $openai = new OpenAIService();
                     $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
                     $plano_data = json_decode($plano, true);
+                    
+                    // Debug: verificar se a API retornou dados válidos
+                    if (!$plano_data) {
+                        throw new Exception('API retornou dados inválidos');
+                    }
                 } catch (Exception $e) {
                     // Se a API falhar, usar dados de fallback
                     require_once 'config/fallback-data.php';
                     $plano_data = FallbackData::getStudyPlan($tema, $nivel);
+                    
+                    // Debug: verificar se o fallback funcionou
+                    if (!$plano_data) {
+                        $message = '<div class="alert alert-danger">Erro: Nem a API nem o fallback funcionaram. Verifique a configuração.</div>';
+                    }
                 }
                 
                 // Debug: verificar estrutura do plano
                 if (!$plano_data) {
-                    $message = '<div class="alert alert-danger">Erro: Plano de estudos não foi gerado.</div>';
+                    $message = '<div class="alert alert-danger">Erro: Plano de estudos não foi gerado. Verifique se a API está funcionando.</div>';
                 } elseif (!isset($plano_data['dias'])) {
                     $message = '<div class="alert alert-danger">Erro: Estrutura do plano inválida. Campo "dias" não encontrado.</div>';
                 } elseif (!is_array($plano_data['dias'])) {

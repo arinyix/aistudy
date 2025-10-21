@@ -7,6 +7,11 @@ class YouTubeService {
     
     public function __construct() {
         $this->apiKey = 'AIzaSyD53gr0KoYXYvPNMQ282BIstKoFRIha1Yw';
+        
+        // Verificar se a chave está definida
+        if (empty($this->apiKey)) {
+            throw new Exception('Chave da API do YouTube não definida');
+        }
     }
     
     /**
@@ -224,19 +229,27 @@ class YouTubeService {
         // Buscar vídeos com múltiplas queries para melhor relevância
         $allVideos = [];
         
-        // Query 1: Busca específica do assunto
-        $videos1 = $this->searchEducationalVideos($subject, $level, 5);
+        // Query 1: Busca usando o título exato da task (prioridade máxima)
+        $videos1 = $this->searchVideos($subject, 5, 'relevance');
         $allVideos = array_merge($allVideos, $videos1);
         
-        // Query 2: Busca com termos mais específicos
-        $specificQuery = $this->buildSpecificQuery($subject, $level);
-        $videos2 = $this->searchVideos($specificQuery . ' aula curso', 5, 'relevance');
+        // Query 2: Busca educacional com o título exato
+        $videos2 = $this->searchEducationalVideos($subject, $level, 5);
         $allVideos = array_merge($allVideos, $videos2);
         
-        // Query 3: Busca com nível específico
-        $levelQuery = $this->buildLevelQuery($subject, $level);
-        $videos3 = $this->searchVideos($levelQuery, 5, 'relevance');
-        $allVideos = array_merge($allVideos, $videos3);
+        // Query 3: Busca com termos mais específicos (apenas se necessário)
+        if (count($allVideos) < 3) {
+            $specificQuery = $this->buildSpecificQuery($subject, $level);
+            $videos3 = $this->searchVideos($specificQuery . ' aula curso', 5, 'relevance');
+            $allVideos = array_merge($allVideos, $videos3);
+        }
+        
+        // Query 4: Busca com nível específico (apenas se necessário)
+        if (count($allVideos) < 3) {
+            $levelQuery = $this->buildLevelQuery($subject, $level);
+            $videos4 = $this->searchVideos($levelQuery, 5, 'relevance');
+            $allVideos = array_merge($allVideos, $videos4);
+        }
         
         // Remover duplicatas
         $uniqueVideos = [];
@@ -337,19 +350,34 @@ class YouTubeService {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'AIStudy/1.0');
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
         
-        if ($httpCode !== 200) {
-            error_log("Erro na API do YouTube. HTTP Code: " . $httpCode);
+        if ($curlError) {
+            error_log('Erro cURL YouTube: ' . $curlError);
             return false;
         }
         
-        return json_decode($response, true);
+        if ($httpCode !== 200) {
+            error_log('Erro HTTP YouTube: ' . $httpCode . ' - ' . $response);
+            return false;
+        }
+        
+        $data = json_decode($response, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log('Erro JSON YouTube: ' . json_last_error_msg());
+            return false;
+        }
+        
+        return $data;
     }
     
     /**

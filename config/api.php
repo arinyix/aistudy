@@ -10,6 +10,11 @@ class OpenAIService {
     public function __construct() {
         $this->api_key = OPENAI_API_KEY;
         $this->api_url = OPENAI_API_URL;
+        
+        // Verificar se a chave está definida
+        if (empty($this->api_key)) {
+            throw new Exception('Chave da API OpenAI não definida');
+        }
     }
     
     public function generateStudyPlan($tema, $nivel, $tempoDiario, $diasDisponiveis, $horario) {
@@ -30,11 +35,51 @@ class OpenAIService {
         O usuário tem {$tempoDiario} minutos por dia, disponível nos dias: " . implode(', ', $diasDisponiveis) . 
         " no horário {$horario}. 
         
+        IMPORTANTE: O tema é '{$tema}' - crie conteúdo ESPECÍFICO para este assunto.
+        Se o usuário quer aprender COREANO, crie conteúdo sobre COREANO.
+        Se o usuário quer aprender MATEMÁTICA, crie conteúdo sobre MATEMÁTICA.
+        Se o usuário quer aprender PROGRAMAÇÃO, crie conteúdo sobre PROGRAMAÇÃO.
+        
         CRIE EXATAMENTE {$totalDias} DIAS DE ESTUDO TODOS NO NÍVEL {$nivel}:
         - TODOS os dias devem ser apropriados para o nível {$nivel}
         - NÃO misture níveis diferentes
         - Progressão dentro do nível {$nivel} apenas
         - Conteúdo adequado para quem está no nível {$nivel}
+        - FOQUE NO TEMA ESPECÍFICO: {$tema}
+        
+        IMPORTANTE PARA OS TÍTULOS DAS TAREFAS:
+        - Use títulos ESPECÍFICOS e DESCRITIVOS do conteúdo sobre {$tema}
+        - NÃO use 'Dia X', 'Aula X' ou 'Nível X' nos títulos
+        - Use nomes de tópicos REAIS e ESPECÍFICOS relacionados a {$tema}
+        - Cada tarefa deve ter um título que descreva exatamente o tópico que será estudado
+        - IMPORTANTE: Todos os tópicos devem ser APROPRIADOS para o nível {$nivel}
+        
+        EXEMPLOS DE TÍTULOS POR NÍVEL:
+        - INICIANTE: Conceitos básicos, fundamentos, introdução, primeiros passos
+        - INTERMEDIÁRIO: Técnicas avançadas, aplicações práticas, métodos profissionais
+        - AVANÇADO: Especialização, domínio, técnicas de especialista, aplicações complexas
+        
+        Exemplos específicos por tema e nível:
+          * COREANO INICIANTE: Alfabeto Hangul, Cumprimentos Básicos, Números de 1 a 10
+          * COREANO INTERMEDIÁRIO: Gramática Avançada, Conversação Formal, Leitura de Textos
+          * COREANO AVANÇADO: Literatura Coreana, Tradução, Debates e Discussões
+          
+          * MATEMÁTICA INICIANTE: Operações Básicas, Frações Simples, Geometria Básica
+          * MATEMÁTICA INTERMEDIÁRIO: Cálculo Diferencial, Álgebra Linear, Estatística
+          * MATEMÁTICA AVANÇADO: Análise Complexa, Topologia, Pesquisa Matemática
+          
+          * FÍSICA INICIANTE: Mecânica Básica, Leis de Newton, Energia Cinética
+          * FÍSICA INTERMEDIÁRIO: Termodinâmica, Eletromagnetismo, Física Quântica
+          * FÍSICA AVANÇADO: Relatividade Geral, Física de Partículas, Cosmologia
+        
+        - NUNCA use títulos genéricos como Aula 1, Dia 1, Introdução
+        - TODOS os tópicos devem ser apropriados para o nível {$nivel}
+        
+        IMPORTANTE PARA OS VÍDEOS:
+        - Cada tarefa deve ter vídeos ESPECÍFICOS para o tópico sobre {$tema}
+        - NÃO use os mesmos vídeos para todas as tarefas
+        - Busque vídeos diferentes para cada tópico específico de {$tema}
+        - Use os vídeos fornecidos como base, mas adapte para cada tópico de {$tema}
         
         Retorne um JSON com a seguinte estrutura:
         {
@@ -45,10 +90,16 @@ class OpenAIService {
                     'dia': 1,
                     'tarefas': [
                         {
-                            'titulo': 'Título da tarefa',
-                            'descricao': 'Descrição detalhada',
+                            'titulo': 'Título específico do tópico (ex: Variáveis e Tipos de Dados)',
+                            'descricao': 'Descrição detalhada do que será estudado',
                             'material': {
-                                'videos': " . json_encode($videos) . ",
+                                'videos': [
+                                    {
+                                        'id': 'video_id_especifico_para_este_topico',
+                                        'title': 'Título específico do vídeo para este tópico',
+                                        'url': 'https://www.youtube.com/watch?v=video_id_especifico'
+                                    }
+                                ],
                                 'textos': ['Livro: Nome do Livro - Capítulo 1', 'Artigo: Título do Artigo'],
                                 'exercicios': ['Exercício 1: Descrição', 'Exercício 2: Descrição']
                             }
@@ -62,10 +113,10 @@ class OpenAIService {
         - Crie EXATAMENTE {$totalDias} dias de estudo
         - TODOS os dias devem ser do nível {$nivel}
         - Cada dia deve ter 1-3 tarefas apropriadas para {$nivel}
-        - Use os vídeos fornecidos acima que são reais e educacionais
+        - Use títulos ESPECÍFICOS para cada tarefa (não use 'Dia X' ou 'Nível X')
+        - Use vídeos DIFERENTES para cada tarefa/tópico
         - Para textos, use títulos de livros, artigos ou recursos educacionais reais
         - Foque em conteúdo educacional de qualidade sobre {$tema} no nível {$nivel}
-        - Use vídeos diferentes para cada dia/tarefa
         - Progressão dentro do nível {$nivel} apenas";
 
         return $this->makeAPICall($prompt);
@@ -121,6 +172,8 @@ class OpenAIService {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'AIStudy/1.0');
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -133,6 +186,11 @@ class OpenAIService {
         
         if ($httpCode === 200) {
             $result = json_decode($response, true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('Erro ao decodificar JSON da API: ' . json_last_error_msg());
+            }
+            
             if (isset($result['choices'][0]['message']['content'])) {
                 return $result['choices'][0]['message']['content'];
             } else {
@@ -143,6 +201,68 @@ class OpenAIService {
             $errorMessage = isset($errorData['error']['message']) ? $errorData['error']['message'] : $response;
             throw new Exception('Erro na API OpenAI (HTTP ' . $httpCode . '): ' . $errorMessage);
         }
+    }
+    
+    public function generateSpecificTopic($tema, $nivel, $dia, $topicosAnteriores = []) {
+        // Construir contexto de tópicos já gerados para evitar repetições
+        $contextoTopicos = '';
+        if (!empty($topicosAnteriores)) {
+            $contextoTopicos = "\n\nTÓPICOS JÁ GERADOS (NÃO REPETIR):\n" . implode("\n", $topicosAnteriores);
+        }
+        
+        $prompt = "Gere um tópico ESPECÍFICO e ÚNICO para o dia {$dia} de estudo de {$tema} no nível {$nivel}.
+        
+        IMPORTANTE - O tópico deve ser:
+        - ESPECÍFICO do assunto {$tema} (não genérico)
+        - APROPRIADO para o nível {$nivel}
+        - ÚNICO (não repetir tópicos anteriores)
+        - Um tópico REAL e educacional
+        - NÃO use 'Fundamentos de', 'Conceitos de', 'Introdução ao'
+        - Use nomes de tópicos ESPECÍFICOS do assunto
+        - DIFERENTE dos tópicos já gerados
+        - ESTRUTURADO como um plano de estudos progressivo
+        
+        NÍVEIS E SUAS CARACTERÍSTICAS:
+        - INICIANTE: Conceitos básicos, fundamentos, primeiros passos, elementos essenciais
+        - INTERMEDIÁRIO: Técnicas avançadas, aplicações práticas, métodos profissionais, especialização
+        - AVANÇADO: Domínio, pesquisa, inovação, técnicas de especialista, aplicações complexas
+        
+        ESTRUTURA DE ESTUDOS PROGRESSIVA:
+        - Dia 1: Conceitos mais básicos e fundamentais
+        - Dia 2: Aplicação prática dos conceitos básicos
+        - Dia 3: Técnicas intermediárias
+        - Dia 4: Aplicações práticas avançadas
+        - Dia 5: Integração e síntese dos conhecimentos
+        
+        EXEMPLOS DE ESTRUTURA PROGRESSIVA:
+        
+        BIOLOGIA (INICIANTE):
+        - Dia 1: 'Animais Mamíferos'
+        - Dia 2: 'Sistema Digestivo dos Mamíferos'
+        - Dia 3: 'Reprodução dos Mamíferos'
+        - Dia 4: 'Adaptações dos Mamíferos'
+        - Dia 5: 'Classificação dos Mamíferos'
+        
+        MATEMÁTICA (INICIANTE):
+        - Dia 1: 'Operações Básicas'
+        - Dia 2: 'Frações Simples'
+        - Dia 3: 'Decimais Básicos'
+        - Dia 4: 'Geometria Plana'
+        - Dia 5: 'Problemas de Palavras'
+        
+        PYTHON (INICIANTE):
+        - Dia 1: 'Variáveis e Tipos de Dados'
+        - Dia 2: 'Operadores e Expressões'
+        - Dia 3: 'Estruturas Condicionais'
+        - Dia 4: 'Loops e Repetições'
+        - Dia 5: 'Funções Básicas'
+        
+        {$contextoTopicos}
+        
+        Para {$tema} no nível {$nivel}, gere um tópico ESPECÍFICO e ÚNICO seguindo a estrutura progressiva.
+        Retorne APENAS o nome do tópico, sem explicações.";
+        
+        return $this->makeAPICall($prompt);
     }
 }
 ?>
