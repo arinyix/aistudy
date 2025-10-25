@@ -41,36 +41,55 @@ if ($_POST) {
                 try {
                     $openai = new OpenAIService();
                     $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
+                    
+                    // Log para debug
+                    error_log("Resposta da API (primeiros 500 chars): " . substr($plano, 0, 500));
+                    
                     $plano_data = json_decode($plano, true);
+                    
+                    // Verificar erro de JSON
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        error_log("Erro JSON: " . json_last_error_msg());
+                        error_log("Resposta completa: " . $plano);
+                        // Tentar extrair JSON da resposta
+                        preg_match('/\{.*\}/s', $plano, $matches);
+                        if (!empty($matches)) {
+                            $plano_data = json_decode($matches[0], true);
+                        }
+                    }
                     
                     // Debug: verificar se a API retornou dados válidos
                     if (!$plano_data) {
-                        throw new Exception('API retornou dados inválidos');
+                        throw new Exception('API retornou dados inválidos. JSON error: ' . json_last_error_msg());
                     }
                 } catch (Exception $e) {
-                    // Se a API falhar, usar dados de fallback
-                    require_once 'config/fallback-data.php';
-                    $plano_data = FallbackData::getStudyPlan($tema, $nivel);
-                    
-                    // Debug: verificar se o fallback funcionou
-                    if (!$plano_data) {
-                        $message = '<div class="alert alert-danger">Erro: Nem a API nem o fallback funcionaram. Verifique a configuração.</div>';
-                    }
+                    // Log do erro completo
+                    error_log("Erro ao gerar plano: " . $e->getMessage());
+                    error_log("Stack trace: " . $e->getTraceAsString());
+                    // Se a API falhar, mostrar erro ao usuário
+                    $message = '<div class="alert alert-danger">Erro ao gerar plano com IA: ' . htmlspecialchars($e->getMessage()) . '<br>Tente novamente mais tarde.</div>';
                 }
                 
                 // Debug: verificar estrutura do plano
                 if (!$plano_data) {
+                    error_log("Plano vazio ou null");
                     $message = '<div class="alert alert-danger">Erro: Plano de estudos não foi gerado. Verifique se a API está funcionando.</div>';
                 } elseif (!isset($plano_data['dias'])) {
+                    error_log("Campo 'dias' não encontrado no plano");
+                    error_log("Estrutura do plano: " . print_r($plano_data, true));
                     $message = '<div class="alert alert-danger">Erro: Estrutura do plano inválida. Campo "dias" não encontrado.</div>';
                 } elseif (!is_array($plano_data['dias'])) {
+                    error_log("Campo 'dias' não é array: " . gettype($plano_data['dias']));
                     $message = '<div class="alert alert-danger">Erro: Campo "dias" não é um array.</div>';
                 } elseif (empty($plano_data['dias'])) {
+                    error_log("Array 'dias' está vazio");
                     $message = '<div class="alert alert-danger">Erro: Nenhum dia encontrado no plano.</div>';
                 } else {
+                    error_log("Plano válido com " . count($plano_data['dias']) . " dias");
                     // Estrutura válida, criar tarefas
                     $task = new Task($db);
                     $tarefas_criadas = 0;
+                    $topicosJaCriados = []; // Array para rastrear tópicos já criados
                     
                     foreach ($plano_data['dias'] as $dia) {
                         if (!isset($dia['tarefas']) || !is_array($dia['tarefas'])) {
@@ -83,7 +102,63 @@ if ($_POST) {
                             $task->descricao = $tarefa['descricao'] ?? 'Descrição não disponível';
                             $task->dia_estudo = $dia['dia'] ?? 1;
                             $task->ordem = $index + 1;
-                            $task->material_estudo = $tarefa['material'] ?? [];
+                            
+                            // Verificar se o tópico já foi criado
+                            $tituloLower = strtolower($task->titulo);
+                            if (in_array($tituloLower, $topicosJaCriados)) {
+                                // Adicionar número ao tópico duplicado
+                                $task->titulo = $task->titulo . ' (Versão ' . (time() . rand(1, 999)) . ')';
+                                $tituloLower = strtolower($task->titulo);
+                            }
+                            
+                            // Adicionar o tópico à lista
+                            $topicosJaCriados[] = $tituloLower;
+                            
+                            // Verificar se há vídeos válidos no material
+                            $material = $tarefa['material'] ?? [];
+                            $temVideosValidos = false;
+                            
+                            // Verificar se há vídeos válidos
+                            if (!empty($material['videos'])) {
+                                foreach ($material['videos'] as $video) {
+                                    if (isset($video['id']) && strlen($video['id']) == 11) {
+                                        // ID válido do YouTube (11 caracteres)
+                                        $temVideosValidos = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // SEMPRE buscar vídeos do YouTube ESPECÍFICOS para o tópico atual
+                            // Esta é a forma AUTOMATIZADA de garantir vídeos relevantes para cada tópico
+                            try {
+                                require_once 'classes/YouTubeService.php';
+                                $youtubeService = new YouTubeService();
+                                $topico = $task->titulo; // Usar o título exato da tarefa como query
+                                
+                                // Buscar vídeos específicos para ESTE tópico exato
+                                $videosReais = $youtubeService->getEducationalVideos($topico, $nivel, 3);
+                                
+                                if (!empty($videosReais)) {
+                                    // Sempre substituir pelos vídeos encontrados para este tópico
+                                    $material['videos'] = $videosReais;
+                                }
+                            } catch (Exception $e) {
+                                // Se falhar, tentar manter os vídeos que já existem (se houver)
+                                if (empty($material['videos'])) {
+                                    error_log("Erro ao buscar vídeos para tópico '{$topico}': " . $e->getMessage());
+                                }
+                            }
+                            
+                            // Garantir que sempre há textos e exercícios
+                            if (!isset($material['textos'])) {
+                                $material['textos'] = [];
+                            }
+                            if (!isset($material['exercicios'])) {
+                                $material['exercicios'] = [];
+                            }
+                            
+                            $task->material_estudo = $material;
                             
                             if ($task->create()) {
                                 $tarefas_criadas++;

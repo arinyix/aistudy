@@ -17,10 +17,22 @@ class FallbackData {
         $totalDias = $diasPorNivel[$nivel] ?? 14;
         
         $dias = [];
+        $topicosGerados = []; // Rastrear tópicos já gerados para evitar repetições
         
         for ($i = 1; $i <= $totalDias; $i++) {
             // Gerar tópicos específicos baseados no tema
-            $topico = self::getTopicoEspecifico($tema, $nivel, $i);
+            $topico = self::getTopicoEspecifico($tema, $nivel, $i, $topicosGerados);
+            
+            // Verificar se o tópico já foi usado
+            $tentativas = 0;
+            while (in_array(strtolower($topico), array_map('strtolower', $topicosGerados)) && $tentativas < 10) {
+                // Tentar gerar um tópico diferente
+                $topico = self::gerarTopicoAutomatico($tema, $nivel, $i);
+                $tentativas++;
+            }
+            
+            // Adicionar o tópico à lista de gerados
+            $topicosGerados[] = $topico;
             
             // Buscar vídeos específicos para este tópico usando API do YouTube
             $videosTopico = self::getVideosPorTopico($topico, $tema, $nivel);
@@ -322,7 +334,7 @@ class FallbackData {
         return array_slice($topicosNivel, 0, $totalDias);
     }
     
-    public static function getTopicoEspecifico($tema, $nivel, $dia) {
+    public static function getTopicoEspecifico($tema, $nivel, $dia, $topicosGerados = []) {
         // Gerar tópicos específicos baseados no tema
         $topicosPorTema = [
             'coreano' => [

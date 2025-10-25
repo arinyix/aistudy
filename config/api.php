@@ -31,6 +31,9 @@ class OpenAIService {
         ];
         $totalDias = $diasPorNivel[$nivel] ?? 14;
         
+        // Preparar vídeos disponíveis para o ChatGPT
+        $videosDisponiveis = json_encode($videos);
+        
         $prompt = "Crie um plano de estudos COMPLETO para aprender {$tema} no nível {$nivel}. 
         O usuário tem {$tempoDiario} minutos por dia, disponível nos dias: " . implode(', ', $diasDisponiveis) . 
         " no horário {$horario}. 
@@ -47,39 +50,80 @@ class OpenAIService {
         - Conteúdo adequado para quem está no nível {$nivel}
         - FOQUE NO TEMA ESPECÍFICO: {$tema}
         
+        ⚠️⚠️⚠️ REGRA CRÍTICA ANTI-REPETIÇÃO - LEIA COM ATENÇÃO ⚠️⚠️⚠️
+        - CADA DIA DEVE TER TÓPICOS COMPLETAMENTE DIFERENTES E ÚNICOS
+        - PROIBIDO TOTALMENTE usar o mesmo tópico em dias diferentes
+        - PROIBIDO usar títulos similares ou variações do mesmo tópico
+        - CADA tópico deve ser ESPECÍFICO e COMPLETAMENTE DIFERENTE dos outros
+        - Use variações, subtópicos e progressão natural para garantir diversidade
+        - NÃO repita o mesmo conteúdo em múltiplos dias
+        - Cada dia deve ser uma progressão natural do anterior
+        - Exemplo PROIBIDO: 'Operações com Matrizes' em Dia 2 e 'Operações com Matrizes' em Dia 3
+        - Exemplo PERMITIDO: Dia 2 = 'Multiplicação de Matrizes', Dia 3 = 'Determinantes e Propriedades'
+        
         IMPORTANTE PARA OS TÍTULOS DAS TAREFAS:
         - Use títulos ESPECÍFICOS e DESCRITIVOS do conteúdo sobre {$tema}
         - NÃO use 'Dia X', 'Aula X' ou 'Nível X' nos títulos
         - Use nomes de tópicos REAIS e ESPECÍFICOS relacionados a {$tema}
         - Cada tarefa deve ter um título que descreva exatamente o tópico que será estudado
         - IMPORTANTE: Todos os tópicos devem ser APROPRIADOS para o nível {$nivel}
+        - Cada tópico DEVE ser ÚNICO e diferente dos tópicos de outros dias
+        - NUNCA repita o mesmo título em dias diferentes
+        - Use especificidade: em vez de 'Matrizes', use 'Multiplicação de Matrizes' ou 'Determinantes de Matrizes'
         
-        EXEMPLOS DE TÍTULOS POR NÍVEL:
+        EXEMPLOS DE TÍTULOS POR NÍVEL (VARIAÇÃO OBRIGATÓRIA):
         - INICIANTE: Conceitos básicos, fundamentos, introdução, primeiros passos
         - INTERMEDIÁRIO: Técnicas avançadas, aplicações práticas, métodos profissionais
         - AVANÇADO: Especialização, domínio, técnicas de especialista, aplicações complexas
         
-        Exemplos específicos por tema e nível:
-          * COREANO INICIANTE: Alfabeto Hangul, Cumprimentos Básicos, Números de 1 a 10
-          * COREANO INTERMEDIÁRIO: Gramática Avançada, Conversação Formal, Leitura de Textos
-          * COREANO AVANÇADO: Literatura Coreana, Tradução, Debates e Discussões
+        Exemplos específicos por tema e nível (CADA DIA COMPLETAMENTE DIFERENTE):
+          * MATEMÁTICA INICIANTE (ÁLGEBRA LINEAR) - EXEMPLO SEM REPETIÇÕES: 
+            - Dia 1: 'Introdução às Matrizes e Tipos'
+            - Dia 2: 'Adição e Subtração de Matrizes'
+            - Dia 3: 'Multiplicação de Matrizes'
+            - Dia 4: 'Determinantes de Matrizes 2x2'
+            - Dia 5: 'Sistemas de Equações Lineares'
+            - Dia 6: 'Gauss-Jordan e Escalonamento'
+            - Dia 7: 'Matrizes Inversas'
+            - Dia 8: 'Aplicações Práticas de Matrizes'
           
-          * MATEMÁTICA INICIANTE: Operações Básicas, Frações Simples, Geometria Básica
-          * MATEMÁTICA INTERMEDIÁRIO: Cálculo Diferencial, Álgebra Linear, Estatística
-          * MATEMÁTICA AVANÇADO: Análise Complexa, Topologia, Pesquisa Matemática
+          * COREANO INICIANTE: 
+            - Dia 1: 'Alfabeto Hangul - Vogais Básicas'
+            - Dia 2: 'Alfabeto Hangul - Consoantes Básicas'
+            - Dia 3: 'Formação de Sílabas em Hangul'
+            - Dia 4: 'Cumprimentos e Saudações Básicas'
+            - Dia 5: 'Números Coreanos de 1 a 20'
+            - Dia 6: 'Pronomes Pessoais e Apresentação'
+            - Dia 7: 'Vocabulário da Família'
+            - Dia 8: 'Partículas Sujeito 이/가'
           
-          * FÍSICA INICIANTE: Mecânica Básica, Leis de Newton, Energia Cinética
-          * FÍSICA INTERMEDIÁRIO: Termodinâmica, Eletromagnetismo, Física Quântica
-          * FÍSICA AVANÇADO: Relatividade Geral, Física de Partículas, Cosmologia
+          * PYTHON INICIANTE: 
+            - Dia 1: 'Instalação e Primeiro Programa'
+            - Dia 2: 'Variáveis e Tipos de Dados Básicos'
+            - Dia 3: 'Operadores Aritméticos e Atribuição'
+            - Dia 4: 'Entrada de Dados com input()'
+            - Dia 5: 'Estruturas Condicionais if/else'
+            - Dia 6: 'Loops for com range()'
+            - Dia 7: 'Loops while e Interrupção'
+            - Dia 8: 'Funções Básicas com def'
         
         - NUNCA use títulos genéricos como Aula 1, Dia 1, Introdução
+        - NUNCA repita o mesmo tópico em dias diferentes
         - TODOS os tópicos devem ser apropriados para o nível {$nivel}
+        - TODOS os tópicos devem ser ÚNICOS e COMPLETAMENTE DIFERENTES
+        - Use ESPECIFICIDADE - seja específico, não genérico
         
-        IMPORTANTE PARA OS VÍDEOS:
-        - Cada tarefa deve ter vídeos ESPECÍFICOS para o tópico sobre {$tema}
-        - NÃO use os mesmos vídeos para todas as tarefas
-        - Busque vídeos diferentes para cada tópico específico de {$tema}
-        - Use os vídeos fornecidos como base, mas adapte para cada tópico de {$tema}
+        IMPORTANTE PARA OS VÍDEOS - LEIA COM ATENÇÃO:
+        - Você recebeu uma lista de vídeos reais do YouTube em JSON
+        - Use SOMENTE esses vídeos reais na resposta
+        - NÃO invente IDs de vídeo
+        - NÃO use IDs genéricos como 'video_id_especifico_para_este_topico'
+        - Use os dados EXATOS dos vídeos fornecidos
+        - Vídeos disponíveis: {$videosDisponiveis}
+        - Para cada tarefa, distribua os vídeos entre os dias
+        - Use até 3 vídeos por tarefa
+        - Se houver poucos vídeos, use cada vídeo em múltiplas tarefas se necessário
+        - NÃO crie IDs falsos, use os IDs REAIS dos vídeos fornecidos
         
         Retorne um JSON com a seguinte estrutura:
         {
@@ -95,9 +139,12 @@ class OpenAIService {
                             'material': {
                                 'videos': [
                                     {
-                                        'id': 'video_id_especifico_para_este_topico',
-                                        'title': 'Título específico do vídeo para este tópico',
-                                        'url': 'https://www.youtube.com/watch?v=video_id_especifico'
+                                        'id': 'ID_REAL_DO_VIDEO_AQUI',
+                                        'title': 'TÍTULO_REAL_DO_VIDEO_AQUI',
+                                        'description': 'Descrição real do vídeo',
+                                        'thumbnail': 'URL_DA_THUMBNAIL_REAL',
+                                        'channel': 'Nome do canal real',
+                                        'url': 'https://www.youtube.com/watch?v=ID_REAL_DO_VIDEO_AQUI'
                                     }
                                 ],
                                 'textos': ['Livro: Nome do Livro - Capítulo 1', 'Artigo: Título do Artigo'],
@@ -109,17 +156,21 @@ class OpenAIService {
             ]
         }
         
-        IMPORTANTE: 
+        ⚠️⚠️⚠️ IMPORTANTE FINAL - REGRAS OBRIGATÓRIAS ⚠️⚠️⚠️: 
         - Crie EXATAMENTE {$totalDias} dias de estudo
         - TODOS os dias devem ser do nível {$nivel}
         - Cada dia deve ter 1-3 tarefas apropriadas para {$nivel}
-        - Use títulos ESPECÍFICOS para cada tarefa (não use 'Dia X' ou 'Nível X')
-        - Use vídeos DIFERENTES para cada tarefa/tópico
+        - Use títulos ESPECÍFICOS e ÚNICOS para cada tarefa (não use 'Dia X' ou 'Nível X')
+        - Use vídeos REAIS da lista fornecida - NÃO invente IDs
         - Para textos, use títulos de livros, artigos ou recursos educacionais reais
         - Foque em conteúdo educacional de qualidade sobre {$tema} no nível {$nivel}
-        - Progressão dentro do nível {$nivel} apenas";
+        - Progressão dentro do nível {$nivel} apenas
+        - *** CRÍTICO: NÃO REPITA TÓPICOS - cada dia deve ser ÚNICO ***
+        - *** CADA TÓPICO DEVE SER DIFERENTE DOS OUTROS TÓPICOS ***
+        - *** USE ESPECIFICIDADE - Seja ESPECÍFICO nos títulos, não genérico ***
+        - *** USE OS VÍDEOS REAIS FORNECIDOS - NÃO INVENTE IDs ***";
 
-        return $this->makeAPICall($prompt);
+        return $this->makeAPICall($prompt, 4000);
     }
     
     public function generateQuiz($tema, $nivel, $conteudo) {
@@ -146,7 +197,7 @@ class OpenAIService {
         return $this->makeAPICall($prompt);
     }
     
-    private function makeAPICall($prompt) {
+    private function makeAPICall($prompt, $maxTokens = 2000) {
         $data = [
             'model' => 'gpt-3.5-turbo',
             'messages' => [
@@ -155,7 +206,7 @@ class OpenAIService {
                     'content' => $prompt
                 ]
             ],
-            'max_tokens' => 2000,
+            'max_tokens' => $maxTokens,
             'temperature' => 0.7
         ];
         
@@ -207,60 +258,68 @@ class OpenAIService {
         // Construir contexto de tópicos já gerados para evitar repetições
         $contextoTopicos = '';
         if (!empty($topicosAnteriores)) {
-            $contextoTopicos = "\n\nTÓPICOS JÁ GERADOS (NÃO REPETIR):\n" . implode("\n", $topicosAnteriores);
+            $contextoTopicos = "\n\n⚠️ LISTA COMPLETA DE TÓPICOS JÁ GERADOS (NUNCA REPETIR ESTES):\n";
+            foreach ($topicosAnteriores as $index => $topico) {
+                $contextoTopicos .= ($index + 1) . ". " . $topico . "\n";
+            }
+            $contextoTopicos .= "\nIMPORTANTE: O novo tópico DEVE ser COMPLETAMENTE DIFERENTE de todos esses tópicos acima.";
         }
         
-        $prompt = "Gere um tópico ESPECÍFICO e ÚNICO para o dia {$dia} de estudo de {$tema} no nível {$nivel}.
+        $prompt = "Você está gerando o tópico do DIA {$dia} de um plano de estudos para aprender {$tema} no nível {$nivel}.
         
-        IMPORTANTE - O tópico deve ser:
-        - ESPECÍFICO do assunto {$tema} (não genérico)
-        - APROPRIADO para o nível {$nivel}
-        - ÚNICO (não repetir tópicos anteriores)
-        - Um tópico REAL e educacional
-        - NÃO use 'Fundamentos de', 'Conceitos de', 'Introdução ao'
-        - Use nomes de tópicos ESPECÍFICOS do assunto
-        - DIFERENTE dos tópicos já gerados
-        - ESTRUTURADO como um plano de estudos progressivo
+        REGRAS CRÍTICAS:
+        1. O tópico deve ser ESPECÍFICO do assunto '{$tema}'
+        2. O tópico deve ser APROPRIADO para o nível '{$nivel}'
+        3. O tópico DEVE ser COMPLETAMENTE ÚNICO e DIFERENTE de todos os tópicos já gerados
+        4. NUNCA repita ou use variações similares de tópicos anteriores
+        5. Use nomes de tópicos ESPECÍFICOS e REAIS do assunto
         
-        NÍVEIS E SUAS CARACTERÍSTICAS:
+        NÍVEIS:
         - INICIANTE: Conceitos básicos, fundamentos, primeiros passos, elementos essenciais
         - INTERMEDIÁRIO: Técnicas avançadas, aplicações práticas, métodos profissionais, especialização
         - AVANÇADO: Domínio, pesquisa, inovação, técnicas de especialista, aplicações complexas
         
-        ESTRUTURA DE ESTUDOS PROGRESSIVA:
+        ESTRUTURA PROGRESSIVA:
         - Dia 1: Conceitos mais básicos e fundamentais
         - Dia 2: Aplicação prática dos conceitos básicos
         - Dia 3: Técnicas intermediárias
         - Dia 4: Aplicações práticas avançadas
         - Dia 5: Integração e síntese dos conhecimentos
         
-        EXEMPLOS DE ESTRUTURA PROGRESSIVA:
+        EXEMPLOS DE TÓPICOS ÚNICOS POR TEMA:
         
-        BIOLOGIA (INICIANTE):
-        - Dia 1: 'Animais Mamíferos'
-        - Dia 2: 'Sistema Digestivo dos Mamíferos'
-        - Dia 3: 'Reprodução dos Mamíferos'
-        - Dia 4: 'Adaptações dos Mamíferos'
-        - Dia 5: 'Classificação dos Mamíferos'
+        BIOLOGIA (INICIANTE) - CADA TÓPICO DIFERENTE:
+        - Dia 1: 'Células Procarióticas e Eucarióticas'
+        - Dia 2: 'Membrana Celular e Transporte'
+        - Dia 3: 'Organelas Celulares'
+        - Dia 4: 'Divisão Celular - Mitose'
+        - Dia 5: 'Divisão Celular - Meiose'
         
-        MATEMÁTICA (INICIANTE):
-        - Dia 1: 'Operações Básicas'
-        - Dia 2: 'Frações Simples'
-        - Dia 3: 'Decimais Básicos'
-        - Dia 4: 'Geometria Plana'
-        - Dia 5: 'Problemas de Palavras'
+        MATEMÁTICA (INICIANTE) - CADA TÓPICO DIFERENTE:
+        - Dia 1: 'Operações com Números Naturais'
+        - Dia 2: 'Frações e Números Decimais'
+        - Dia 3: 'Geometria - Ângulos e Polígonos'
+        - Dia 4: 'Proporção e Regra de Três'
+        - Dia 5: 'Sistema de Unidades de Medida'
         
-        PYTHON (INICIANTE):
-        - Dia 1: 'Variáveis e Tipos de Dados'
-        - Dia 2: 'Operadores e Expressões'
-        - Dia 3: 'Estruturas Condicionais'
-        - Dia 4: 'Loops e Repetições'
-        - Dia 5: 'Funções Básicas'
+        PYTHON (INICIANTE) - CADA TÓPICO DIFERENTE:
+        - Dia 1: 'Sintaxe Básica do Python'
+        - Dia 2: 'Tipos de Dados e Variáveis'
+        - Dia 3: 'Operadores Aritméticos e Lógicos'
+        - Dia 4: 'Estruturas de Decisão if/elif/else'
+        - Dia 5: 'Loops for e while'
+        
+        COREANO (INICIANTE) - CADA TÓPICO DIFERENTE:
+        - Dia 1: 'Alfabeto Hangul - Vogais e Consoantes Básicas'
+        - Dia 2: 'Cumprimentos e Saudações Básicas'
+        - Dia 3: 'Números Coreanos de 1 a 20'
+        - Dia 4: 'Apresentação Pessoal e Pronomes'
+        - Dia 5: 'Vocabulário da Família'
         
         {$contextoTopicos}
         
-        Para {$tema} no nível {$nivel}, gere um tópico ESPECÍFICO e ÚNICO seguindo a estrutura progressiva.
-        Retorne APENAS o nome do tópico, sem explicações.";
+        Para '{$tema}' no nível '{$nivel}', gere um tópico ESPECÍFICO, ÚNICO e DIFERENTE de todos os tópicos anteriores.
+        Retorne APENAS o nome do tópico, sem explicações, sem prefixos como 'Dia X:', sem aspas.";
         
         return $this->makeAPICall($prompt);
     }
