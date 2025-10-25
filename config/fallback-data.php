@@ -536,7 +536,7 @@ class FallbackData {
     
     public static function getVideosPorTopico($topico, $tema, $nivel) {
         // SEMPRE usar a API do YouTube para vídeos reais baseados no tópico específico
-        // TUDO AUTOMATIZADO - ZERO predefinições
+        // TUDO AUTOMATIZADO - ZERO predefinições - 100% API
         
         try {
             require_once 'classes/YouTubeService.php';

@@ -4,6 +4,7 @@ require_once 'config/database.php';
 class YouTubeService {
     private $apiKey;
     private $baseUrl = 'https://www.googleapis.com/youtube/v3/';
+    private $cacheFile = 'cache/youtube_cache.json';
     
     public function __construct() {
         $this->apiKey = 'AIzaSyD53gr0KoYXYvPNMQ282BIstKoFRIha1Yw';
@@ -11,6 +12,11 @@ class YouTubeService {
         // Verificar se a chave está definida
         if (empty($this->apiKey)) {
             throw new Exception('Chave da API do YouTube não definida');
+        }
+        
+        // Criar diretório de cache se não existir
+        if (!file_exists('cache')) {
+            mkdir('cache', 0755, true);
         }
     }
     
@@ -226,29 +232,116 @@ class YouTubeService {
      * Buscar vídeos educacionais com filtro de relevância
      */
     public function getEducationalVideos($subject, $level = 'iniciante', $maxResults = 3) {
-        // Buscar vídeos com múltiplas queries para melhor relevância
-        $allVideos = [];
-        
-        // Query 1: Busca usando o título exato da task (prioridade máxima)
-        $videos1 = $this->searchVideos($subject, 5, 'relevance');
-        $allVideos = array_merge($allVideos, $videos1);
-        
-        // Query 2: Busca educacional com o título exato
-        $videos2 = $this->searchEducationalVideos($subject, $level, 5);
-        $allVideos = array_merge($allVideos, $videos2);
-        
-        // Query 3: Busca com termos mais específicos (apenas se necessário)
-        if (count($allVideos) < 3) {
-            $specificQuery = $this->buildSpecificQuery($subject, $level);
-            $videos3 = $this->searchVideos($specificQuery . ' aula curso', 5, 'relevance');
-            $allVideos = array_merge($allVideos, $videos3);
+        // Verificar cache primeiro
+        $cachedResult = $this->getFromCache($subject, $level);
+        if ($cachedResult !== null) {
+            return $cachedResult;
         }
         
-        // Query 4: Busca com nível específico (apenas se necessário)
-        if (count($allVideos) < 3) {
-            $levelQuery = $this->buildLevelQuery($subject, $level);
-            $videos4 = $this->searchVideos($levelQuery, 5, 'relevance');
-            $allVideos = array_merge($allVideos, $videos4);
+        $allVideos = [];
+        
+        try {
+            // Estratégia 1: Busca direta com o tópico exato
+            $videos1 = $this->searchVideos($subject, 5, 'relevance');
+            $allVideos = array_merge($allVideos, $videos1);
+            
+            // Estratégia 2: Busca educacional
+            if (count($allVideos) < 3) {
+                $videos2 = $this->searchEducationalVideos($subject, $level, 5);
+                $allVideos = array_merge($allVideos, $videos2);
+            }
+            
+            // Estratégia 3: Busca com termos mais específicos
+            if (count($allVideos) < 3) {
+                $specificQuery = $this->buildSpecificQuery($subject, $level);
+                $videos3 = $this->searchVideos($specificQuery . ' aula curso', 5, 'relevance');
+                $allVideos = array_merge($allVideos, $videos3);
+            }
+            
+            // Estratégia 4: Busca com nível específico
+            if (count($allVideos) < 3) {
+                $levelQuery = $this->buildLevelQuery($subject, $level);
+                $videos4 = $this->searchVideos($levelQuery, 5, 'relevance');
+                $allVideos = array_merge($allVideos, $videos4);
+            }
+            
+            // Estratégia 5: Busca mais genérica (última tentativa)
+            if (count($allVideos) < 3) {
+                $genericQuery = $this->buildGenericQuery($subject);
+                $videos5 = $this->searchVideos($genericQuery, 5, 'relevance');
+                $allVideos = array_merge($allVideos, $videos5);
+            }
+            
+        } catch (Exception $e) {
+            // Log do erro para debug
+            error_log('YouTube API Error: ' . $e->getMessage());
+            
+            // Verificar tipo específico de erro
+            $errorMessage = $e->getMessage();
+            
+            if (strpos($errorMessage, 'quota') !== false || strpos($errorMessage, '403') !== false) {
+                return [
+                    [
+                        'id' => 'quota_exceeded',
+                        'title' => 'Quota da API do YouTube excedida',
+                        'description' => 'A cota diária da API do YouTube foi excedida. Tente novamente amanhã.',
+                        'thumbnail' => '',
+                        'channel' => 'Sistema',
+                        'url' => '#'
+                    ]
+                ];
+            }
+            
+            if (strpos($errorMessage, '400') !== false) {
+                return [
+                    [
+                        'id' => 'bad_request',
+                        'title' => 'Erro na requisição à API do YouTube',
+                        'description' => 'A requisição para a API do YouTube foi inválida. Verifique os parâmetros.',
+                        'thumbnail' => '',
+                        'channel' => 'Sistema',
+                        'url' => '#'
+                    ]
+                ];
+            }
+            
+            if (strpos($errorMessage, '401') !== false) {
+                return [
+                    [
+                        'id' => 'unauthorized',
+                        'title' => 'Chave da API do YouTube inválida',
+                        'description' => 'A chave da API do YouTube não é válida ou expirou.',
+                        'thumbnail' => '',
+                        'channel' => 'Sistema',
+                        'url' => '#'
+                    ]
+                ];
+            }
+            
+            if (strpos($errorMessage, 'timeout') !== false || strpos($errorMessage, 'connection') !== false) {
+                return [
+                    [
+                        'id' => 'connection_error',
+                        'title' => 'Erro de conexão com YouTube',
+                        'description' => 'Não foi possível conectar com a API do YouTube. Verifique sua conexão.',
+                        'thumbnail' => '',
+                        'channel' => 'Sistema',
+                        'url' => '#'
+                    ]
+                ];
+            }
+            
+            // Erro genérico com detalhes
+            return [
+                [
+                    'id' => 'api_error',
+                    'title' => 'Erro: API do YouTube indisponível',
+                    'description' => 'Erro: ' . $errorMessage,
+                    'thumbnail' => '',
+                    'channel' => 'Sistema',
+                    'url' => '#'
+                ]
+            ];
         }
         
         // Remover duplicatas
@@ -262,17 +355,32 @@ class YouTubeService {
         }
         
         if (empty($uniqueVideos)) {
-            return $this->getFallbackVideos($subject);
+            return [
+                [
+                    'id' => 'error',
+                    'title' => 'Erro: Nenhum vídeo encontrado para ' . $subject,
+                    'description' => 'Não foram encontrados vídeos educacionais para este tópico.',
+                    'thumbnail' => '',
+                    'channel' => 'Erro',
+                    'url' => '#'
+                ]
+            ];
         }
         
         // Filtrar por relevância educacional
         $filteredVideos = $this->filterVideosByRelevance($uniqueVideos, $subject, $level);
         
         if (empty($filteredVideos)) {
-            return $this->getFallbackVideos($subject);
+            // Se não encontrar vídeos relevantes, usar os primeiros encontrados
+            return array_slice($uniqueVideos, 0, $maxResults);
         }
         
-        return $filteredVideos;
+        $result = array_slice($filteredVideos, 0, $maxResults);
+        
+        // Salvar no cache
+        $this->saveToCache($subject, $level, $result);
+        
+        return $result;
     }
     
     /**
@@ -290,58 +398,20 @@ class YouTubeService {
     }
     
     /**
-     * Vídeos de fallback caso a API falhe
+     * Construir query genérica para busca mais ampla
      */
-    private function getFallbackVideos($subject) {
-        // Vídeos educacionais específicos por assunto
-        $fallbackVideos = [
-            'python' => [
-                'id' => 'kqtD5dpn9C8',
-                'title' => 'Python para Iniciantes - Curso Completo',
-                'description' => 'Aprenda Python do zero com este curso completo',
-                'thumbnail' => 'https://img.youtube.com/vi/kqtD5dpn9C8/mqdefault.jpg',
-                'channel' => 'Curso em Vídeo',
-                'url' => 'https://www.youtube.com/watch?v=kqtD5dpn9C8'
-            ],
-            'javascript' => [
-                'id' => 'B7xai5u_tnk',
-                'title' => 'JavaScript para Iniciantes - Curso Completo',
-                'description' => 'Aprenda JavaScript do zero com este curso completo',
-                'thumbnail' => 'https://img.youtube.com/vi/B7xai5u_tnk/mqdefault.jpg',
-                'channel' => 'Curso em Vídeo',
-                'url' => 'https://www.youtube.com/watch?v=B7xai5u_tnk'
-            ],
-            'matemática' => [
-                'id' => 'dQw4w9WgXcQ',
-                'title' => 'Matemática Básica - Aula Completa',
-                'description' => 'Aprenda matemática básica com esta aula completa',
-                'thumbnail' => 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-                'channel' => 'Canal Educacional',
-                'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-            ]
-        ];
+    private function buildGenericQuery($subject) {
+        // Extrair palavras-chave principais do tópico
+        $words = explode(' ', strtolower($subject));
+        $mainWords = array_filter($words, function($word) {
+            return strlen($word) > 3; // Filtrar palavras muito curtas
+        });
         
-        $subjectLower = strtolower($subject);
-        
-        // Procurar por vídeo específico do assunto
-        foreach ($fallbackVideos as $key => $video) {
-            if (strpos($subjectLower, $key) !== false) {
-                return [$video];
-            }
-        }
-        
-        // Vídeo genérico se não encontrar específico
-        return [
-            [
-                'id' => 'dQw4w9WgXcQ',
-                'title' => 'Vídeo Educacional - ' . $subject,
-                'description' => 'Conteúdo educacional sobre ' . $subject,
-                'thumbnail' => 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-                'channel' => 'Canal Educacional',
-                'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-            ]
-        ];
+        // Usar as palavras principais + termos educacionais
+        $mainSubject = implode(' ', array_slice($mainWords, 0, 2)); // Pegar as 2 primeiras palavras principais
+        return $mainSubject . ' educação tutorial';
     }
+    
     
     /**
      * Fazer requisição HTTP
@@ -350,10 +420,14 @@ class YouTubeService {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_USERAGENT, 'AIStudy/1.0');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Accept: application/json',
+            'Content-Type: application/json'
+        ]);
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -362,19 +436,26 @@ class YouTubeService {
         
         if ($curlError) {
             error_log('Erro cURL YouTube: ' . $curlError);
-            return false;
+            throw new Exception('Erro de conexão com YouTube API: ' . $curlError);
         }
         
         if ($httpCode !== 200) {
-            error_log('Erro HTTP YouTube: ' . $httpCode . ' - ' . $response);
-            return false;
+            $errorData = json_decode($response, true);
+            $errorMessage = 'Erro HTTP YouTube: ' . $httpCode;
+            
+            if (isset($errorData['error']['message'])) {
+                $errorMessage .= ' - ' . $errorData['error']['message'];
+            }
+            
+            error_log($errorMessage);
+            throw new Exception($errorMessage);
         }
         
         $data = json_decode($response, true);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
             error_log('Erro JSON YouTube: ' . json_last_error_msg());
-            return false;
+            throw new Exception('Erro ao processar resposta da API do YouTube');
         }
         
         return $data;
@@ -408,6 +489,55 @@ class YouTubeService {
      */
     public function getEmbedUrl($videoId) {
         return "https://www.youtube.com/embed/{$videoId}";
+    }
+    
+    /**
+     * Obter resultado do cache
+     */
+    private function getFromCache($subject, $level) {
+        if (!file_exists($this->cacheFile)) {
+            return null;
+        }
+        
+        $cache = json_decode(file_get_contents($this->cacheFile), true);
+        if (!$cache) {
+            return null;
+        }
+        
+        $cacheKey = md5($subject . $level);
+        $cachedData = $cache[$cacheKey] ?? null;
+        
+        if ($cachedData && isset($cachedData['timestamp'])) {
+            // Cache válido por 24 horas
+            if (time() - $cachedData['timestamp'] < 86400) {
+                return $cachedData['videos'];
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Salvar resultado no cache
+     */
+    private function saveToCache($subject, $level, $videos) {
+        $cache = [];
+        if (file_exists($this->cacheFile)) {
+            $cache = json_decode(file_get_contents($this->cacheFile), true) ?: [];
+        }
+        
+        $cacheKey = md5($subject . $level);
+        $cache[$cacheKey] = [
+            'timestamp' => time(),
+            'videos' => $videos
+        ];
+        
+        // Manter apenas os últimos 100 resultados no cache
+        if (count($cache) > 100) {
+            $cache = array_slice($cache, -100, null, true);
+        }
+        
+        file_put_contents($this->cacheFile, json_encode($cache));
     }
 }
 ?>
