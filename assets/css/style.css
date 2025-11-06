@@ -158,7 +158,17 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th {
 .navbar-brand {
     font-weight: 700;
     font-size: 1.5rem;
-    color: var(--primary-color);
+    color: #1f2937 !important; /* Preto no modo claro */
+    transition: color 0.3s ease;
+}
+
+/* Modo escuro: texto branco */
+[data-theme="dark"] .navbar-brand {
+    color: #ffffff !important;
+}
+
+.navbar-brand:hover {
+    color: var(--primary-color) !important;
 }
 
 .nav-link {
@@ -208,10 +218,27 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th {
 
 .card-header {
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    color: white;
+    color: white !important;
     border-radius: 12px 12px 0 0;
     border: none;
     padding: 1rem 1.5rem;
+}
+
+.card-header * {
+    color: white !important;
+}
+
+.card-header h5,
+.card-header h6 {
+    color: white !important;
+}
+
+.card-header i {
+    color: white !important;
+}
+
+.card-header .badge {
+    color: white !important;
 }
 
 .card-body {
@@ -614,8 +641,111 @@ select option {
     background-clip: text;
 }
 
+.text-purple {
+    color: var(--primary-color) !important;
+}
+
+.text-purple i {
+    color: var(--primary-color) !important;
+}
+
+[data-theme="dark"] .text-purple {
+    color: var(--primary-color) !important;
+}
+
+[data-theme="dark"] .text-purple i {
+    color: var(--primary-color) !important;
+}
+
 .shadow-sm {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Study Day Cards - Dashboard Calendar */
+.study-day-card {
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: var(--card-bg);
+}
+
+.study-day-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .study-day-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.study-day-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white !important;
+    border: none;
+    padding: 1rem 1.25rem;
+}
+
+.study-day-header * {
+    color: white !important;
+}
+
+[data-theme="dark"] .study-day-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+}
+
+[data-theme="dark"] .study-day-header * {
+    color: white !important;
+}
+
+.study-day-header h6 {
+    color: white !important;
+    margin: 0;
+    font-weight: 600;
+}
+
+.study-day-header h6 i {
+    color: white !important;
+}
+
+.study-day-header .badge {
+    color: white !important;
+}
+
+.study-day-header * {
+    color: white !important;
+}
+
+.study-day-badge {
+    background: #10b981;
+    color: white;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+}
+
+[data-theme="dark"] .study-day-badge {
+    background: #059669;
+}
+
+.study-day-bullet {
+    color: #10b981;
+    font-size: 8px;
+}
+
+[data-theme="dark"] .study-day-bullet {
+    color: #34d399;
+}
+
+.study-day-text {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.study-day-card .card-body {
+    padding: 1rem 1.25rem;
+    background: var(--card-bg);
 }
 
 .shadow {

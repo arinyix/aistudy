@@ -16,8 +16,21 @@ $routines = $routine->getUserRoutines($user['id']);
 
 // Calcular estatísticas
 $total_routines = count($routines);
-$rotinas_ativas = count(array_filter($routines, function($r) { return $r['status'] === 'ativa'; }));
-$rotinas_concluidas = count(array_filter($routines, function($r) { return $r['status'] === 'concluida'; }));
+
+// Rotinas concluídas: status = 'concluida' OU progresso >= 100%
+$rotinas_concluidas = count(array_filter($routines, function($r) { 
+    return $r['status'] === 'concluida' || (float)$r['progresso'] >= 100.0; 
+}));
+
+// Rotinas em andamento: status = 'ativa' E progresso < 100%
+$rotinas_ativas = count(array_filter($routines, function($r) { 
+    return $r['status'] === 'ativa' && (float)$r['progresso'] < 100.0; 
+}));
+
+// Rotinas pausadas: status = 'pausada' E progresso < 100%
+$rotinas_pausadas = count(array_filter($routines, function($r) { 
+    return $r['status'] === 'pausada' && (float)$r['progresso'] < 100.0; 
+}));
 
 // Progresso médio das rotinas
 $progresso_medio = 0;
@@ -231,8 +244,14 @@ if ($filtro_rotina !== 'todas') {
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <span class="badge bg-<?php echo $rotina['status'] === 'ativa' ? 'success' : ($rotina['status'] === 'pausada' ? 'warning' : 'secondary'); ?>">
-                                                        <?php echo ucfirst($rotina['status']); ?>
+                                                    <?php 
+                                                    // Se progresso >= 100%, mostrar como concluída
+                                                    $is_concluida = (float)$rotina['progresso'] >= 100.0;
+                                                    $status_display = $is_concluida ? 'concluida' : $rotina['status'];
+                                                    $status_class = $is_concluida ? 'secondary' : ($rotina['status'] === 'ativa' ? 'success' : ($rotina['status'] === 'pausada' ? 'warning' : 'secondary'));
+                                                    ?>
+                                                    <span class="badge bg-<?php echo $status_class; ?>">
+                                                        <?php echo ucfirst($status_display); ?>
                                                     </span>
                                                 </td>
                                                 <td>
@@ -263,7 +282,7 @@ if ($filtro_rotina !== 'todas') {
             data: {
                 labels: ['Concluídas', 'Em Andamento', 'Pausadas'],
                 datasets: [{
-                    data: [<?php echo $rotinas_concluidas; ?>, <?php echo $rotinas_ativas; ?>, <?php echo $total_routines - $rotinas_concluidas - $rotinas_ativas; ?>],
+                    data: [<?php echo $rotinas_concluidas; ?>, <?php echo $rotinas_ativas; ?>, <?php echo $rotinas_pausadas; ?>],
                     backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
                     borderWidth: 0
                 }]

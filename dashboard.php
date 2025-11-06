@@ -32,15 +32,19 @@ $activeRoutines = count(array_filter($routines, function($r) { return $r['status
 $completedToday = count(array_filter($todayTasksGrouped, function($t) { return $t['status'] === 'concluida'; }));
 $totalToday = count($todayTasksGrouped);
 
-// Próximos dias de estudo
+// Próximos dias de estudo - apenas da semana atual
 $nextStudyDates = [];
+$dayOfWeek = date('w', strtotime($today)); // 0 = domingo, 6 = sábado
+$startOfWeek = date('Y-m-d', strtotime($today . ' -' . $dayOfWeek . ' days')); // Domingo da semana
+$endOfWeek = date('Y-m-d', strtotime($startOfWeek . ' +6 days')); // Sábado da semana
+
 foreach ($studySchedule as $date => $schedules) {
-    if ($date >= $today) {
+    // Mostrar apenas dias da semana atual (domingo a sábado)
+    if ($date >= $today && $date <= $endOfWeek) {
         $nextStudyDates[] = $date;
     }
 }
 sort($nextStudyDates);
-$nextStudyDates = array_slice($nextStudyDates, 0, 7); // Próximos 7 dias
 ?>
 
 <!DOCTYPE html>
@@ -281,31 +285,31 @@ $nextStudyDates = array_slice($nextStudyDates, 0, 7); // Próximos 7 dias
         <!-- Próximos Dias -->
         <?php if (!empty($nextStudyDates)): ?>
             <div class="mb-4">
-                <h6 class="text-success">
-                    <i class="fas fa-calendar-week me-2"></i>Próximos Dias de Estudo
+                            <h6 class="text-purple">
+                    <i class="fas fa-calendar-week me-2"></i>Semana Atual
                 </h6>
                 <div class="row">
                     <?php foreach ($nextStudyDates as $date): ?>
                         <?php $tasksGrouped = $calendar->getTasksForSpecificDate($user['id'], $date); ?>
                         <?php if (!empty($tasksGrouped)): ?>
                             <div class="col-md-6 col-lg-4 mb-3">
-                                <div class="card border-success">
-                                    <div class="card-header bg-light">
+                                <div class="card study-day-card">
+                                    <div class="card-header study-day-header">
                                         <h6 class="mb-0">
                                             <i class="fas fa-calendar-day me-2"></i>
                                             <?php echo date('d/m/Y', strtotime($date)); ?>
-                                            <span class="badge bg-success ms-2"><?php echo count($tasksGrouped); ?> assunto<?php echo count($tasksGrouped) > 1 ? 's' : ''; ?></span>
+                                            <span class="badge study-day-badge ms-2"><?php echo count($tasksGrouped); ?> assunto<?php echo count($tasksGrouped) > 1 ? 's' : ''; ?></span>
                                         </h6>
                                     </div>
                                     <div class="card-body">
                                         <?php foreach (array_slice($tasksGrouped, 0, 2) as $task): ?>
                                             <div class="d-flex align-items-center mb-2">
-                                                <i class="fas fa-circle text-success me-2" style="font-size: 8px;"></i>
-                                                <small class="text-muted"><?php echo htmlspecialchars($task['titulo']); ?></small>
+                                                <i class="fas fa-circle study-day-bullet me-2"></i>
+                                                <small class="study-day-text"><?php echo htmlspecialchars($task['titulo']); ?></small>
                                             </div>
                                         <?php endforeach; ?>
                                         <?php if (count($tasksGrouped) > 2): ?>
-                                            <small class="text-muted">+<?php echo count($tasksGrouped) - 2; ?> mais...</small>
+                                            <small class="study-day-text">+<?php echo count($tasksGrouped) - 2; ?> mais...</small>
                                         <?php endif; ?>
                                     </div>
                                 </div>
