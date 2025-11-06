@@ -90,9 +90,17 @@ $message = '';
             <a class="navbar-brand" href="dashboard.php">
                 <i class="fas fa-brain text-primary"></i> AIStudy
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            
+            <!-- Container com toggle switch (mobile) e hambúrguer - apenas no mobile -->
+            <div class="d-flex align-items-center gap-2 d-lg-none">
+                <button class="theme-toggle-switch" onclick="toggleTheme()" type="button" aria-label="Alternar tema">
+                    <span class="theme-toggle-slider"></span>
+                </button>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -111,8 +119,10 @@ $message = '';
                         </a>
                     </li>
                 </ul>
+                
                 <ul class="navbar-nav">
-                    <li class="nav-item me-3">
+                    <!-- Botão de tema para desktop -->
+                    <li class="nav-item me-3 d-none d-lg-block">
                         <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
                             <i class="fas fa-moon"></i>
                         </button>
@@ -474,66 +484,128 @@ $message = '';
         function gerarResumoAuxiliar(taskId, topico) {
             console.log('Gerando resumo auxiliar para task:', taskId);
             
-            // Mostrar modal
             const modal = new bootstrap.Modal(document.getElementById('resumoModal'));
-            modal.show();
+            let modalShown = false;
+            let statusInterval = null;
+            let timeoutId = null;
             
-            // Resetar conteúdo com feedback visual melhorado
-            document.getElementById('resumoContent').innerHTML = `
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                        <span class="visually-hidden">Gerando resumo...</span>
+            // Função para mostrar o modal de loading (só se necessário)
+            function showLoadingModal() {
+                if (modalShown) return; // Evitar mostrar múltiplas vezes
+                modalShown = true;
+                
+                modal.show();
+                
+                // Resetar conteúdo com feedback visual melhorado
+                document.getElementById('resumoContent').innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Gerando resumo...</span>
+                        </div>
+                        <h5 class="mt-4 mb-2">Gerando Resumo Auxiliar</h5>
+                        <p class="text-muted mb-3">Isso pode levar 30-90 segundos...</p>
+                        <div class="progress" style="max-width: 400px; margin: 0 auto;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <p class="mt-3 small text-muted" id="loadingStatus">Aguardando resposta da API...</p>
                     </div>
-                    <h5 class="mt-4 mb-2">Gerando Resumo Auxiliar</h5>
-                    <p class="text-muted mb-3">Isso pode levar 30-90 segundos...</p>
-                    <div class="progress" style="max-width: 400px; margin: 0 auto;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
-                    </div>
-                    <p class="mt-3 small text-muted" id="loadingStatus">Aguardando resposta da API...</p>
-                </div>
-            `;
-            document.getElementById('downloadPDFBtn').style.display = 'none';
+                `;
+                document.getElementById('downloadPDFBtn').style.display = 'none';
+                
+                // Atualizar status de loading
+                let statusMessages = [
+                    'Aguardando resposta da API...',
+                    'Processando conteúdo...',
+                    'Gerando resumo detalhado...',
+                    'Quase finalizado...'
+                ];
+                let statusIndex = 0;
+                statusInterval = setInterval(() => {
+                    const statusEl = document.getElementById('loadingStatus');
+                    if (statusEl) {
+                        statusEl.textContent = statusMessages[statusIndex % statusMessages.length];
+                        statusIndex++;
+                    }
+                }, 2000);
+                
+                // Armazenar interval para limpar depois
+                window.resumoLoadingInterval = statusInterval;
+            }
             
-            // Atualizar status de loading
-            let statusMessages = [
-                'Aguardando resposta da API...',
-                'Processando conteúdo...',
-                'Gerando resumo detalhado...',
-                'Quase finalizado...'
-            ];
-            let statusIndex = 0;
-            const statusInterval = setInterval(() => {
-                const statusEl = document.getElementById('loadingStatus');
-                if (statusEl) {
-                    statusEl.textContent = statusMessages[statusIndex % statusMessages.length];
-                    statusIndex++;
+            // Função para abrir o resumo no visualizador
+            function openResumoViewer(content) {
+                // Fechar modal se estiver aberto
+                if (modalShown) {
+                    modal.hide();
                 }
-            }, 2000);
+                
+                // Limpar interval se existir
+                if (statusInterval) {
+                    clearInterval(statusInterval);
+                }
+                if (window.resumoLoadingInterval) {
+                    clearInterval(window.resumoLoadingInterval);
+                }
+                
+                // Sempre usar POST para enviar o conteúdo (mais seguro e sem limite de tamanho)
+                // Passar referrer para poder voltar depois
+                const currentUrl = window.location.href;
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'resumo-pdf.php?task_id=' + taskId + '&referrer=' + encodeURIComponent(currentUrl);
+                form.target = '_blank';
+                form.style.display = 'none';
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'content';
+                input.value = content;
+                
+                form.appendChild(input);
+                document.body.appendChild(form);
+                
+                // Submeter formulário
+                form.submit();
+                
+                // Remover formulário após um delay
+                setTimeout(() => {
+                    if (form.parentNode) {
+                        document.body.removeChild(form);
+                    }
+                }, 1000);
+            }
             
-            // Armazenar interval para limpar depois
-            window.resumoLoadingInterval = statusInterval;
-            
-            // Fazer requisição
-            // Criar AbortController para timeout customizado (3 minutos)
+            // Fazer requisição PRIMEIRO (sem mostrar modal imediatamente)
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => {
+            
+            // Se a requisição demorar mais de 500ms, mostrar modal de loading
+            const showModalTimeout = setTimeout(() => {
+                showLoadingModal();
+            }, 500);
+            
+            // Timeout para abortar requisição se demorar muito
+            timeoutId = setTimeout(() => {
                 controller.abort();
-                // Limpar interval de status
+                if (statusInterval) {
+                    clearInterval(statusInterval);
+                }
                 if (window.resumoLoadingInterval) {
                     clearInterval(window.resumoLoadingInterval);
                 }
                 // Mostrar mensagem de timeout
-                document.getElementById('resumoContent').innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-clock me-2"></i>
-                        <strong>A requisição está demorando mais que o esperado.</strong>
-                        <br><br>
-                        <p>A API pode estar sobrecarregada ou sua conexão está lenta.</p>
-                        <button class="btn btn-sm btn-primary" onclick="gerarResumoAuxiliar(${taskId}, '${topico}')">
-                            <i class="fas fa-redo me-1"></i>Tentar Novamente
-                        </button>
-                    </div>
-                `;
+                if (modalShown) {
+                    document.getElementById('resumoContent').innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-clock me-2"></i>
+                            <strong>A requisição está demorando mais que o esperado.</strong>
+                            <br><br>
+                            <p>A API pode estar sobrecarregada ou sua conexão está lenta.</p>
+                            <button class="btn btn-sm btn-primary" onclick="gerarResumoAuxiliar(${taskId}, '${topico}')">
+                                <i class="fas fa-redo me-1"></i>Tentar Novamente
+                            </button>
+                        </div>
+                    `;
+                }
             }, 180000); // 3 minutos
            
            fetch('gerar-resumo.php', {
@@ -545,16 +617,14 @@ $message = '';
                signal: controller.signal
            })
             .then(response => {
+               clearTimeout(showModalTimeout); // Cancelar timeout do modal
                clearTimeout(timeoutId);
                // Limpar interval de status
+               if (statusInterval) {
+                   clearInterval(statusInterval);
+               }
                if (window.resumoLoadingInterval) {
                    clearInterval(window.resumoLoadingInterval);
-               }
-               
-               // Atualizar status
-               const statusEl = document.getElementById('loadingStatus');
-               if (statusEl) {
-                   statusEl.textContent = 'Recebendo resposta...';
                }
                
                return response.text();
@@ -564,68 +634,68 @@ $message = '';
                 try {
                     const data = JSON.parse(text);
                     console.log('Parsed data:', data);
+                    console.log('Cached:', data.cached);
                     
                     if (data.success && data.content) {
                         console.log('Conteúdo recebido com sucesso. Tamanho:', data.content.length, 'caracteres');
                         
-                        // Atualizar status
-                        const statusEl = document.getElementById('loadingStatus');
-                        if (statusEl) {
-                            statusEl.textContent = 'Abrindo visualizador...';
-                        }
-                        
-                        // Sempre usar POST para enviar o conteúdo (mais seguro e sem limite de tamanho)
-                        // Passar referrer para poder voltar depois
-                        const currentUrl = window.location.href;
-                        const form = document.createElement('form');
-                        form.method = 'POST';
-                        form.action = 'resumo-pdf.php?task_id=' + taskId + '&referrer=' + encodeURIComponent(currentUrl);
-                        form.target = '_blank';
-                        form.style.display = 'none';
-                        
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'content';
-                        input.value = data.content;
-                        
-                        form.appendChild(input);
-                        document.body.appendChild(form);
-                        
-                        // Submeter formulário
-                        form.submit();
-                        
-                        // Remover formulário após um delay
-                        setTimeout(() => {
-                            if (form.parentNode) {
-                                document.body.removeChild(form);
+                        // Se o resumo já estava em cache, não mostrar modal (ou fechar se já mostrou)
+                        if (data.cached === true) {
+                            console.log('✅ Resumo recuperado do cache - abrindo diretamente sem modal');
+                            // Se o modal ainda não foi mostrado (resposta rápida), não mostrar
+                            if (!modalShown) {
+                                clearTimeout(showModalTimeout);
                             }
-                        }, 1000);
-                        
-                        // Fechar modal
-                        setTimeout(() => {
-                            modal.hide();
-                        }, 500);
+                            // Abrir resumo diretamente
+                            openResumoViewer(data.content);
+                        } else {
+                            // Se não estava em cache, pode mostrar status de "Abrindo visualizador"
+                            if (modalShown) {
+                                const statusEl = document.getElementById('loadingStatus');
+                                if (statusEl) {
+                                    statusEl.textContent = 'Abrindo visualizador...';
+                                }
+                            }
+                            // Abrir resumo
+                            setTimeout(() => {
+                                openResumoViewer(data.content);
+                            }, 300);
+                        }
                     } else {
-                        document.getElementById('resumoContent').innerHTML = `
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Erro ao gerar resumo: ${data.message || 'Erro desconhecido'}
-                            </div>
-                        `;
+                        // Mostrar erro
+                        if (modalShown) {
+                            document.getElementById('resumoContent').innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Erro ao gerar resumo: ${data.message || 'Erro desconhecido'}
+                                </div>
+                            `;
+                        } else {
+                            alert('Erro ao gerar resumo: ' + (data.message || 'Erro desconhecido'));
+                        }
                     }
                 } catch (e) {
                     console.error('Error parsing JSON:', e);
-                    document.getElementById('resumoContent').innerHTML = `
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Erro ao processar resposta. Verifique o console para detalhes.
-                        </div>
-                    `;
+                    if (modalShown) {
+                        document.getElementById('resumoContent').innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Erro ao processar resposta. Verifique o console para detalhes.
+                            </div>
+                        `;
+                    } else {
+                        alert('Erro ao processar resposta. Verifique o console para detalhes.');
+                    }
                 }
             })
                        .catch(error => {
+               clearTimeout(showModalTimeout); // Cancelar timeout do modal
                clearTimeout(timeoutId);
+               
                // Limpar interval de status
+               if (statusInterval) {
+                   clearInterval(statusInterval);
+               }
                if (window.resumoLoadingInterval) {
                    clearInterval(window.resumoLoadingInterval);
                }
@@ -634,25 +704,30 @@ $message = '';
                
                let errorMessage = 'Erro ao gerar resumo. ';
                if (error.name === 'AbortError') {
-                   errorMessage += 'A requisição demorou muito tempo (mais de 6 minutos). Isso pode acontecer se a API estiver lenta. Tente novamente.';
+                   errorMessage += 'A requisição demorou muito tempo (mais de 3 minutos). Isso pode acontecer se a API estiver lenta. Tente novamente.';
                } else if (error.message) {
                    errorMessage += error.message;
                } else {
                    errorMessage += 'Erro desconhecido. Verifique sua conexão e tente novamente.';
                }
                
-               document.getElementById('resumoContent').innerHTML = `
-                   <div class="alert alert-danger">
-                       <i class="fas fa-exclamation-triangle me-2"></i>
-                       <strong>Erro:</strong> ${errorMessage}
-                       <br><br>
-                       <button class="btn btn-sm btn-primary" onclick="gerarResumoAuxiliar(${taskId}, '${topico}')">
-                           <i class="fas fa-redo me-1"></i>Tentar Novamente
-                       </button>
-                   </div>
-               `;
+               // Mostrar erro no modal ou em alert
+               if (modalShown) {
+                   document.getElementById('resumoContent').innerHTML = `
+                       <div class="alert alert-danger">
+                           <i class="fas fa-exclamation-triangle me-2"></i>
+                           <strong>Erro:</strong> ${errorMessage}
+                           <br><br>
+                           <button class="btn btn-sm btn-primary" onclick="gerarResumoAuxiliar(${taskId}, '${topico}')">
+                               <i class="fas fa-redo me-1"></i>Tentar Novamente
+                           </button>
+                       </div>
+                   `;
+               } else {
+                   alert('Erro ao gerar resumo: ' + errorMessage);
+               }
            });
-        }
+       }
         
         function renderMarkdown(markdown) {
             console.log('renderMarkdown chamada, markdown length:', markdown ? markdown.length : 0);

@@ -42,10 +42,39 @@ if ($total_routines > 0) {
 // Filtro por rotina
 $filtro_rotina = $_GET['rotina'] ?? 'todas';
 $rotinas_filtradas = $routines;
+$rotina_selecionada = null;
+
 if ($filtro_rotina !== 'todas') {
     $rotinas_filtradas = array_filter($routines, function($r) use ($filtro_rotina) {
         return $r['id'] == $filtro_rotina;
     });
+    // Buscar a rotina selecionada para mostrar no gráfico
+    foreach ($routines as $r) {
+        if ($r['id'] == $filtro_rotina) {
+            $rotina_selecionada = $r;
+            break;
+        }
+    }
+}
+
+// Dados para o gráfico
+$chart_labels = [];
+$chart_data = [];
+$chart_colors = [];
+
+if ($rotina_selecionada) {
+    // Se uma rotina específica foi selecionada, mostrar progresso dessa rotina
+    $progresso_concluido = (float)$rotina_selecionada['progresso'];
+    $progresso_pendente = 100.0 - $progresso_concluido;
+    
+    $chart_labels = ['Concluído', 'Pendente'];
+    $chart_data = [$progresso_concluido, $progresso_pendente];
+    $chart_colors = ['#10b981', '#e5e7eb']; // Verde para concluído, cinza para pendente
+} else {
+    // Se mostrar todas as rotinas, mostrar distribuição geral
+    $chart_labels = ['Concluídas', 'Em Andamento', 'Pausadas'];
+    $chart_data = [$rotinas_concluidas, $rotinas_ativas, $rotinas_pausadas];
+    $chart_colors = ['#10b981', '#3b82f6', '#f59e0b'];
 }
 ?>
 
@@ -78,9 +107,17 @@ if ($filtro_rotina !== 'todas') {
             <a class="navbar-brand" href="dashboard.php">
                 <i class="fas fa-brain text-primary"></i> AIStudy
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            
+            <!-- Container com toggle switch (mobile) e hambúrguer - apenas no mobile -->
+            <div class="d-flex align-items-center gap-2 d-lg-none">
+                <button class="theme-toggle-switch" onclick="toggleTheme()" type="button" aria-label="Alternar tema">
+                    <span class="theme-toggle-slider"></span>
+                </button>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -99,8 +136,10 @@ if ($filtro_rotina !== 'todas') {
                         </a>
                     </li>
                 </ul>
+                
                 <ul class="navbar-nav">
-                    <li class="nav-item me-3">
+                    <!-- Botão de tema para desktop -->
+                    <li class="nav-item me-3 d-none d-lg-block">
                         <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
                             <i class="fas fa-moon"></i>
                         </button>
@@ -181,7 +220,12 @@ if ($filtro_rotina !== 'todas') {
                 <div class="card">
                     <div class="card-header">
                         <h6 class="mb-0">
-                            <i class="fas fa-chart-pie me-2"></i>Progresso das Rotinas
+                            <i class="fas fa-chart-pie me-2"></i>
+                            <?php if ($rotina_selecionada): ?>
+                                Progresso: <?php echo htmlspecialchars($rotina_selecionada['titulo']); ?>
+                            <?php else: ?>
+                                Progresso das Rotinas
+                            <?php endif; ?>
                         </h6>
                     </div>
                     <div class="card-body" style="padding: 2rem;">
@@ -277,13 +321,19 @@ if ($filtro_rotina !== 'todas') {
     <script>
         // Gráfico de Progresso das Rotinas
         const progressoCtx = document.getElementById('progressoChart').getContext('2d');
-        new Chart(progressoCtx, {
+        
+        // Dados do gráfico vindos do PHP
+        const chartLabels = <?php echo json_encode($chart_labels); ?>;
+        const chartData = <?php echo json_encode($chart_data); ?>;
+        const chartColors = <?php echo json_encode($chart_colors); ?>;
+        
+        let progressChart = new Chart(progressoCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Concluídas', 'Em Andamento', 'Pausadas'],
+                labels: chartLabels,
                 datasets: [{
-                    data: [<?php echo $rotinas_concluidas; ?>, <?php echo $rotinas_ativas; ?>, <?php echo $rotinas_pausadas; ?>],
-                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
+                    data: chartData,
+                    backgroundColor: chartColors,
                     borderWidth: 0
                 }]
             },
@@ -292,7 +342,29 @@ if ($filtro_rotina !== 'todas') {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'bottom'
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                let value = context.parsed || 0;
+                                
+                                // Se for rotina específica, mostrar porcentagem
+                                <?php if ($rotina_selecionada): ?>
+                                    return label + ': ' + value.toFixed(1) + '%';
+                                <?php else: ?>
+                                    return label + ': ' + value + ' rotina(s)';
+                                <?php endif; ?>
+                            }
+                        }
                     }
                 }
             }

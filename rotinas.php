@@ -55,9 +55,17 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
             <a class="navbar-brand" href="dashboard.php">
                 <i class="fas fa-brain text-primary"></i> AIStudy
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            
+            <!-- Container com toggle switch (mobile) e hambúrguer - apenas no mobile -->
+            <div class="d-flex align-items-center gap-2 d-lg-none">
+                <button class="theme-toggle-switch" onclick="toggleTheme()" type="button" aria-label="Alternar tema">
+                    <span class="theme-toggle-slider"></span>
+                </button>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -76,8 +84,10 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
                         </a>
                     </li>
                 </ul>
+                
                 <ul class="navbar-nav">
-                    <li class="nav-item me-3">
+                    <!-- Botão de tema para desktop -->
+                    <li class="nav-item me-3 d-none d-lg-block">
                         <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
                             <i class="fas fa-moon"></i>
                         </button>

@@ -50,24 +50,29 @@ $resumo_existente = $task->getResumo($task_id, $user['id']);
 
 // Verificação mais rigorosa: verificar se não é null, não é vazio e tem conteúdo
 if ($resumo_existente !== null && $resumo_existente !== '' && trim($resumo_existente) !== '') {
-    error_log("=== RESUMO JÁ EXISTE NO BANCO - RETORNANDO CACHE ===");
+    error_log("=== ✅ RESUMO JÁ EXISTE NO BANCO - RETORNANDO CACHE ===");
     error_log("Task ID: " . $task_id);
     error_log("Tamanho do resumo: " . strlen($resumo_existente) . " caracteres");
     error_log("Primeiros 100 caracteres: " . substr($resumo_existente, 0, 100));
+    error_log("⚠️ IMPORTANTE: RETORNANDO RESUMO DO BANCO - NÃO VAI CHAMAR A API");
     
     // IMPORTANTE: NÃO CHAMAR A API - RETORNAR DIRETAMENTE O RESUMO DO BANCO
+    // Limpar output buffer antes de enviar JSON
+    ob_clean();
     echo json_encode([
         'success' => true, 
         'content' => $resumo_existente,
         'filename' => 'resumo_' . $task_id . '_' . time() . '.html',
         'time_elapsed' => 0,
         'cached' => true,
-        'message' => 'Resumo recuperado do banco de dados (sem chamada à API)'
+        'message' => 'Resumo recuperado do banco de dados (sem chamada à API)',
+        'source' => 'database'
     ]);
+    ob_end_flush();
     exit();
 }
 
-error_log("=== RESUMO NÃO ENCONTRADO NO BANCO - VAI GERAR NOVO ===");
+error_log("=== ❌ RESUMO NÃO ENCONTRADO NO BANCO - VAI GERAR NOVO ===");
 error_log("Task ID: " . $task_id);
 error_log("SERÁ NECESSÁRIO CHAMAR A API DO CHATGPT");
 

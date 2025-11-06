@@ -20,32 +20,61 @@ if ($_POST) {
     if ($action === 'update_profile') {
         $nome = $_POST['nome'] ?? '';
         $email = $_POST['email'] ?? '';
+        $senha_confirmacao = $_POST['senha_confirmacao'] ?? '';
         
         if ($nome && $email) {
-            $user_obj->nome = $nome;
-            $user_obj->email = $email;
+            // Verificar se o email foi alterado
+            $email_alterado = $email !== $user['email'];
             
-            // Verificar se o email já existe em outro usuário
-            $checkQuery = "SELECT id FROM users WHERE email = :email AND id != :id";
-            $checkStmt = $db->prepare($checkQuery);
-            $checkStmt->bindParam(":email", $email);
-            $checkStmt->bindParam(":id", $user['id']);
-            $checkStmt->execute();
-            
-            if ($checkStmt->rowCount() > 0) {
-                $message = '<div class="alert alert-danger">Este email já está sendo usado por outro usuário!</div>';
+            // Se o email foi alterado, verificar senha
+            if ($email_alterado) {
+                if (empty($senha_confirmacao)) {
+                    $message = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Para alterar o email, é necessário informar sua senha atual!</div>';
+                } elseif (!$user_obj->verifyPassword($senha_confirmacao)) {
+                    $message = '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Senha incorreta! Para alterar o email, você precisa confirmar com sua senha atual.</div>';
+                } else {
+                    // Senha correta, continuar com a atualização
+                    $user_obj->nome = $nome;
+                    $user_obj->email = $email;
+                    
+                    // Verificar se o email já existe em outro usuário
+                    $checkQuery = "SELECT id FROM users WHERE email = :email AND id != :id";
+                    $checkStmt = $db->prepare($checkQuery);
+                    $checkStmt->bindParam(":email", $email);
+                    $checkStmt->bindParam(":id", $user['id']);
+                    $checkStmt->execute();
+                    
+                    if ($checkStmt->rowCount() > 0) {
+                        $message = '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Este email já está sendo usado por outro usuário!</div>';
+                    } else {
+                        if ($user_obj->update()) {
+                            // Atualizar sessão
+                            $_SESSION['user_nome'] = $nome;
+                            $_SESSION['user_email'] = $email;
+                            $message = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>Perfil atualizado com sucesso! Seu email foi alterado.</div>';
+                            // Recarregar dados do usuário
+                            $user = getCurrentUser();
+                        } else {
+                            $message = '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Erro ao atualizar perfil!</div>';
+                        }
+                    }
+                }
             } else {
+                // Email não foi alterado, apenas atualizar nome
+                $user_obj->nome = $nome;
+                
                 if ($user_obj->update()) {
                     // Atualizar sessão
                     $_SESSION['user_nome'] = $nome;
-                    $_SESSION['user_email'] = $email;
-                    $message = '<div class="alert alert-success">Perfil atualizado com sucesso!</div>';
+                    $message = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>Perfil atualizado com sucesso!</div>';
+                    // Recarregar dados do usuário
+                    $user = getCurrentUser();
                 } else {
-                    $message = '<div class="alert alert-danger">Erro ao atualizar perfil!</div>';
+                    $message = '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Erro ao atualizar perfil!</div>';
                 }
             }
         } else {
-            $message = '<div class="alert alert-warning">Preencha todos os campos!</div>';
+            $message = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Preencha todos os campos obrigatórios!</div>';
         }
     } elseif ($action === 'change_password') {
         $senha_atual = $_POST['senha_atual'] ?? '';
@@ -103,9 +132,17 @@ if ($_POST) {
             <a class="navbar-brand" href="dashboard.php">
                 <i class="fas fa-brain text-primary"></i> AIStudy
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            
+            <!-- Container com toggle switch (mobile) e hambúrguer - apenas no mobile -->
+            <div class="d-flex align-items-center gap-2 d-lg-none">
+                <button class="theme-toggle-switch" onclick="toggleTheme()" type="button" aria-label="Alternar tema">
+                    <span class="theme-toggle-slider"></span>
+                </button>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -124,8 +161,10 @@ if ($_POST) {
                         </a>
                     </li>
                 </ul>
+                
                 <ul class="navbar-nav">
-                    <li class="nav-item me-3">
+                    <!-- Botão de tema para desktop -->
+                    <li class="nav-item me-3 d-none d-lg-block">
                         <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
                             <i class="fas fa-moon"></i>
                         </button>
@@ -149,76 +188,166 @@ if ($_POST) {
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <!-- Header -->
-        <div class="row mb-4">
+    <div class="container mt-5 mb-5">
+        <!-- Header Profissional -->
+        <div class="row mb-5">
             <div class="col-12">
-                <h1 class="text-gradient">Configurações</h1>
-                <p class="text-muted">Gerencie suas informações pessoais e preferências</p>
+                <div class="settings-header">
+                    <div class="settings-header-icon">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <div class="settings-header-content">
+                        <h1 class="settings-title">Configurações</h1>
+                        <p class="settings-subtitle">Gerencie suas informações pessoais e preferências da conta</p>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <?php echo $message; ?>
-
-        <div class="row">
-            <!-- Perfil -->
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-user me-2"></i>Informações Pessoais
-                        </h6>
+        <?php if ($message): ?>
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="settings-alert-wrapper">
+                        <?php echo $message; ?>
                     </div>
-                    <div class="card-body">
-                        <form method="POST">
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <div class="row g-4">
+            <!-- Perfil -->
+            <div class="col-lg-6">
+                <div class="settings-card">
+                    <div class="settings-card-header settings-card-header-primary">
+                        <div class="settings-card-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <h3 class="settings-card-title">Informações Pessoais</h3>
+                            <p class="settings-card-subtitle">Atualize seu nome e email</p>
+                        </div>
+                    </div>
+                    <div class="settings-card-body">
+                        <form method="POST" id="profileForm">
                             <input type="hidden" name="action" value="update_profile">
-                            <div class="mb-3">
-                                <label for="nome" class="form-label">Nome Completo</label>
-                                <input type="text" class="form-control" id="nome" name="nome" 
-                                       value="<?php echo htmlspecialchars($user['nome']); ?>" required>
+                            
+                            <div class="settings-form-group">
+                                <label for="nome" class="settings-label">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span>Nome Completo</span>
+                                </label>
+                                <div class="settings-input-wrapper">
+                                    <input type="text" class="settings-input" id="nome" name="nome" 
+                                           value="<?php echo htmlspecialchars($user['nome']); ?>" required
+                                           placeholder="Seu nome completo">
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" 
-                                       value="<?php echo htmlspecialchars($user['email']); ?>" required>
+                            
+                            <div class="settings-form-group">
+                                <label for="email" class="settings-label">
+                                    <i class="fas fa-envelope"></i>
+                                    <span>Email</span>
+                                </label>
+                                <div class="settings-input-wrapper">
+                                    <input type="email" class="settings-input" id="email" name="email" 
+                                           value="<?php echo htmlspecialchars($user['email']); ?>" required
+                                           placeholder="seu@email.com">
+                                </div>
+                                <div class="settings-form-help">
+                                    <i class="fas fa-info-circle"></i>
+                                    Se você alterar o email, será necessário confirmar com sua senha.
+                                </div>
                             </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Salvar Alterações
-                            </button>
+                            
+                            <!-- Campo de senha (aparece quando email é alterado) -->
+                            <div class="settings-form-group" id="senhaConfirmacaoContainer" style="display: none;">
+                                <label for="senha_confirmacao" class="settings-label">
+                                    <i class="fas fa-lock"></i>
+                                    <span>Confirmar Senha</span>
+                                    <span class="settings-required">*</span>
+                                </label>
+                                <div class="settings-input-wrapper">
+                                    <input type="password" class="settings-input settings-input-warning" 
+                                           id="senha_confirmacao" name="senha_confirmacao" 
+                                           placeholder="Digite sua senha atual">
+                                </div>
+                                <div class="settings-form-help settings-form-help-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <strong>Obrigatório:</strong> Para alterar o email, confirme com sua senha atual.
+                                </div>
+                            </div>
+                            
+                            <div class="settings-form-actions">
+                                <button type="submit" class="settings-btn settings-btn-primary">
+                                    <i class="fas fa-save"></i>
+                                    <span>Salvar Alterações</span>
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
             </div>
 
             <!-- Alterar Senha -->
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-lock me-2"></i>Alterar Senha
-                        </h6>
+            <div class="col-lg-6">
+                <div class="settings-card">
+                    <div class="settings-card-header settings-card-header-warning">
+                        <div class="settings-card-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div>
+                            <h3 class="settings-card-title">Alterar Senha</h3>
+                            <p class="settings-card-subtitle">Mantenha sua conta segura</p>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <form method="POST">
+                    <div class="settings-card-body">
+                        <form method="POST" id="passwordForm">
                             <input type="hidden" name="action" value="change_password">
-                            <div class="mb-3">
-                                <label for="senha_atual" class="form-label">Senha Atual</label>
-                                <input type="password" class="form-control" id="senha_atual" name="senha_atual" required>
+                            
+                            <div class="settings-form-group">
+                                <label for="senha_atual" class="settings-label">
+                                    <i class="fas fa-key"></i>
+                                    <span>Senha Atual</span>
+                                </label>
+                                <div class="settings-input-wrapper">
+                                    <input type="password" class="settings-input" id="senha_atual" 
+                                           name="senha_atual" required placeholder="Digite sua senha atual">
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="nova_senha" class="form-label">Nova Senha</label>
-                                <input type="password" class="form-control" id="nova_senha" name="nova_senha" 
-                                       minlength="6" required>
-                                <div class="form-text">A senha deve ter pelo menos 6 caracteres.</div>
+                            
+                            <div class="settings-form-group">
+                                <label for="nova_senha" class="settings-label">
+                                    <i class="fas fa-lock"></i>
+                                    <span>Nova Senha</span>
+                                </label>
+                                <div class="settings-input-wrapper">
+                                    <input type="password" class="settings-input" id="nova_senha" 
+                                           name="nova_senha" minlength="6" required placeholder="Mínimo 6 caracteres">
+                                </div>
+                                <div class="settings-form-help">
+                                    <i class="fas fa-shield-alt"></i>
+                                    A senha deve ter pelo menos 6 caracteres.
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="confirmar_senha" class="form-label">Confirmar Nova Senha</label>
-                                <input type="password" class="form-control" id="confirmar_senha" name="confirmar_senha" 
-                                       minlength="6" required>
+                            
+                            <div class="settings-form-group">
+                                <label for="confirmar_senha" class="settings-label">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>Confirmar Nova Senha</span>
+                                </label>
+                                <div class="settings-input-wrapper">
+                                    <input type="password" class="settings-input" id="confirmar_senha" 
+                                           name="confirmar_senha" minlength="6" required 
+                                           placeholder="Digite a senha novamente">
+                                </div>
                             </div>
-                            <button type="submit" class="btn btn-warning">
-                                <i class="fas fa-key me-2"></i>Alterar Senha
-                            </button>
+                            
+                            <div class="settings-form-actions">
+                                <button type="submit" class="settings-btn settings-btn-warning">
+                                    <i class="fas fa-key"></i>
+                                    <span>Alterar Senha</span>
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -226,35 +355,66 @@ if ($_POST) {
         </div>
 
         <!-- Informações da Conta -->
-        <div class="row">
+        <div class="row mt-4">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-info-circle me-2"></i>Informações da Conta
-                        </h6>
+                <div class="settings-card">
+                    <div class="settings-card-header settings-card-header-info">
+                        <div class="settings-card-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div>
+                            <h3 class="settings-card-title">Informações da Conta</h3>
+                            <p class="settings-card-subtitle">Detalhes sobre sua conta</p>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="row">
+                    <div class="settings-card-body">
+                        <div class="row g-4">
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label text-muted">ID do Usuário</label>
-                                    <p class="mb-0"><?php echo $user['id']; ?></p>
+                                <div class="settings-info-card">
+                                    <div class="settings-info-icon settings-info-icon-primary">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </div>
+                                    <div class="settings-info-content">
+                                        <label class="settings-info-label">Membro desde</label>
+                                        <p class="settings-info-value">
+                                            <?php 
+                                            $data_criacao = $user['created_at'] ?? date('Y-m-d H:i:s');
+                                            echo date('d/m/Y', strtotime($data_criacao)); 
+                                            ?>
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label text-muted">Membro desde</label>
-                                    <p class="mb-0"><?php echo date('d/m/Y', strtotime($user['created_at'] ?? 'now')); ?></p>
+                                <div class="settings-info-card">
+                                    <div class="settings-info-icon settings-info-icon-success">
+                                        <i class="fas fa-user-check"></i>
+                                    </div>
+                                    <div class="settings-info-content">
+                                        <label class="settings-info-label">Status da Conta</label>
+                                        <p class="settings-info-value">
+                                            <span class="settings-badge settings-badge-success">
+                                                <i class="fas fa-check-circle"></i>
+                                                Ativa
+                                            </span>
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Sobre o AIStudy:</strong> Esta é uma plataforma de estudos inteligente que utiliza 
-                            inteligência artificial para criar rotinas de estudos personalizadas. Suas informações 
-                            são protegidas e utilizadas apenas para melhorar sua experiência de aprendizado.
+                        <div class="settings-info-box">
+                            <div class="settings-info-box-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="settings-info-box-content">
+                                <h4 class="settings-info-box-title">Sobre o AIStudy</h4>
+                                <p class="settings-info-box-text">
+                                    Esta é uma plataforma de estudos inteligente que utiliza inteligência artificial 
+                                    para criar rotinas de estudos personalizadas. Suas informações são protegidas e 
+                                    utilizadas apenas para melhorar sua experiência de aprendizado.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -265,6 +425,37 @@ if ($_POST) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/dark-mode.js"></script>
     <script>
+        // Email original para comparar
+        const emailOriginal = '<?php echo htmlspecialchars($user['email'], ENT_QUOTES); ?>';
+        const emailInput = document.getElementById('email');
+        const senhaConfirmacaoContainer = document.getElementById('senhaConfirmacaoContainer');
+        const senhaConfirmacaoInput = document.getElementById('senha_confirmacao');
+        
+        // Mostrar/ocultar campo de senha quando email é alterado
+        emailInput.addEventListener('input', function() {
+            if (this.value !== emailOriginal) {
+                senhaConfirmacaoContainer.style.display = 'block';
+                senhaConfirmacaoInput.required = true;
+            } else {
+                senhaConfirmacaoContainer.style.display = 'none';
+                senhaConfirmacaoInput.required = false;
+                senhaConfirmacaoInput.value = '';
+            }
+        });
+        
+        // Validação do formulário de perfil
+        document.getElementById('profileForm').addEventListener('submit', function(e) {
+            const emailAtual = emailInput.value;
+            const emailFoiAlterado = emailAtual !== emailOriginal;
+            
+            if (emailFoiAlterado && !senhaConfirmacaoInput.value) {
+                e.preventDefault();
+                alert('⚠️ Para alterar o email, é necessário informar sua senha atual!');
+                senhaConfirmacaoInput.focus();
+                return false;
+            }
+        });
+        
         // Validação de senha
         document.getElementById('nova_senha').addEventListener('input', function() {
             const senha = this.value;
@@ -272,8 +463,23 @@ if ($_POST) {
             
             if (senha.length < 6) {
                 this.setCustomValidity('A senha deve ter pelo menos 6 caracteres');
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
             } else {
                 this.setCustomValidity('');
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+            
+            // Verificar se as senhas coincidem
+            if (confirmar.value && senha !== confirmar.value) {
+                confirmar.setCustomValidity('As senhas não coincidem');
+                confirmar.classList.remove('is-valid');
+                confirmar.classList.add('is-invalid');
+            } else if (confirmar.value && senha === confirmar.value) {
+                confirmar.setCustomValidity('');
+                confirmar.classList.remove('is-invalid');
+                confirmar.classList.add('is-valid');
             }
         });
         
@@ -283,10 +489,19 @@ if ($_POST) {
             
             if (senha !== confirmar) {
                 this.setCustomValidity('As senhas não coincidem');
-            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+            } else if (senha.length >= 6) {
                 this.setCustomValidity('');
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
             }
         });
+        
+        // Limpar formulário de senha após sucesso
+        <?php if (isset($_POST['action']) && $_POST['action'] === 'change_password' && strpos($message, 'sucesso') !== false): ?>
+        document.getElementById('passwordForm').reset();
+        <?php endif; ?>
     </script>
 </body>
 </html>

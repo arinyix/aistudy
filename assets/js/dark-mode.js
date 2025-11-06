@@ -41,6 +41,9 @@
                 }
             }
         });
+        
+        // O toggle switch mobile é atualizado automaticamente via CSS
+        // usando o atributo data-theme no HTML, então não precisa de código adicional
     }
     
     // Inicializar quando o DOM estiver pronto

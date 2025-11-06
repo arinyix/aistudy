@@ -21,7 +21,7 @@
 ### **1. Instalação Inicial:**
 ```sql
 -- Criar banco e estrutura
-SOURCE database/schema-improved.sql;
+SOURCE database/schema.sql;
 SOURCE database/seed.sql;
 ```
 

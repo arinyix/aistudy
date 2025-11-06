@@ -68,25 +68,39 @@ if (!$rotina) {
 
 // Buscar conteúdo do resumo
 $markdown_content = '';
+$content_source = 'none'; // 'post', 'get', 'database', 'api'
 
 // Tentar receber via POST primeiro (método preferido)
-if (isset($_POST['content']) && !empty($_POST['content'])) {
-    $markdown_content = $_POST['content'];
-    error_log("Conteúdo recebido via POST. Tamanho: " . strlen($markdown_content) . " caracteres");
+if (isset($_POST['content'])) {
+    $post_content = $_POST['content'];
+    // Verificar se não é vazio e tem conteúdo válido
+    if (!empty($post_content) && trim($post_content) !== '') {
+        $markdown_content = $post_content;
+        $content_source = 'post';
+        error_log("✅ CONTEÚDO RECEBIDO VIA POST. Tamanho: " . strlen($markdown_content) . " caracteres");
+        error_log("⚠️ IMPORTANTE: Usando conteúdo recebido via POST - NÃO VAI BUSCAR NO BANCO E NÃO VAI GERAR NOVO RESUMO");
+    } else {
+        error_log("⚠️ POST 'content' existe mas está vazio ou inválido");
+    }
 } 
 // Tentar receber via GET (base64) - fallback
 elseif (isset($_GET['content']) && !empty($_GET['content'])) {
     // Tentar decodificar base64
     $decoded = @base64_decode($_GET['content'], true);
-    if ($decoded !== false && !empty($decoded)) {
+    if ($decoded !== false && !empty($decoded) && trim($decoded) !== '') {
         $markdown_content = $decoded;
-        error_log("Conteúdo recebido via GET (base64). Tamanho: " . strlen($markdown_content) . " caracteres");
+        $content_source = 'get';
+        error_log("✅ CONTEÚDO RECEBIDO VIA GET (base64). Tamanho: " . strlen($markdown_content) . " caracteres");
+        error_log("⚠️ IMPORTANTE: Usando conteúdo recebido via GET - NÃO VAI BUSCAR NO BANCO E NÃO VAI GERAR NOVO RESUMO");
+    } else {
+        error_log("⚠️ GET 'content' existe mas está vazio ou inválido após decodificação");
     }
 }
 
-// Se não tiver conteúdo, verificar no banco primeiro
-if (empty($markdown_content)) {
-    error_log("=== resumo-pdf.php: Conteúdo não recebido via POST/GET ===");
+// CRÍTICO: Se já tem conteúdo via POST/GET, NÃO fazer mais nada - pular verificação do banco e geração
+// Se não tiver conteúdo via POST/GET, verificar no banco primeiro
+if ($content_source === 'none' || empty($markdown_content)) {
+    error_log("=== resumo-pdf.php: Conteúdo NÃO recebido via POST/GET ===");
     error_log("Verificando no banco de dados para task_id: " . $task_id);
     
     // Tentar buscar do banco de dados
@@ -94,11 +108,12 @@ if (empty($markdown_content)) {
     
     // Verificação rigorosa
     if ($resumo_do_banco !== null && $resumo_do_banco !== '' && trim($resumo_do_banco) !== '') {
+        $markdown_content = $resumo_do_banco;
+        $content_source = 'database';
         error_log("✅ RESUMO ENCONTRADO NO BANCO - USANDO CACHE (SEM CHAMAR API)");
         error_log("Tamanho do resumo: " . strlen($resumo_do_banco) . " caracteres");
-        $markdown_content = $resumo_do_banco;
     } else {
-        // Se não tiver no banco, gerar agora (ULTIMA OPÇÃO)
+        // Se não tiver no banco, gerar agora (ULTIMA OPÇÃO - SÓ SE NÃO EXISTIR)
         error_log("❌ RESUMO NÃO ENCONTRADO NO BANCO - SERÁ NECESSÁRIO GERAR VIA API");
         error_log("Task ID: " . $task_id);
         
@@ -107,7 +122,7 @@ if (empty($markdown_content)) {
             set_time_limit(360);
             ini_set('max_execution_time', 360);
             
-            error_log("⚠️ CHAMANDO API OPENAI PARA GERAR RESUMO...");
+            error_log("⚠️ CHAMANDO API OPENAI PARA GERAR RESUMO (ÚLTIMA OPÇÃO - NÃO EXISTE NO BANCO)...");
             
             $markdown_content = $openai->generateSummaryPDF(
                 $task_data['titulo'],
@@ -119,7 +134,8 @@ if (empty($markdown_content)) {
                 throw new Exception('Resumo gerado está vazio');
             }
             
-            error_log("✅ Resumo gerado com sucesso. Tamanho: " . strlen($markdown_content) . " caracteres");
+            $content_source = 'api';
+            error_log("✅ Resumo gerado via API com sucesso. Tamanho: " . strlen($markdown_content) . " caracteres");
             
             // Salvar no banco de dados
             $saved = $task->saveResumo($task_id, $user['id'], $markdown_content);
@@ -134,6 +150,14 @@ if (empty($markdown_content)) {
             die('Erro ao gerar resumo: ' . htmlspecialchars($e->getMessage()));
         }
     }
+} else {
+    // Se já tem conteúdo via POST/GET, NÃO fazer nada mais - usar o conteúdo recebido
+    // NÃO verificar banco, NÃO gerar novo resumo - usar o que foi recebido
+    error_log("✅ RESUMO RECEBIDO VIA {$content_source} - USANDO CONTEÚDO RECEBIDO");
+    error_log("⚠️ PULANDO VERIFICAÇÃO DO BANCO E GERAÇÃO DE NOVO RESUMO");
+    error_log("Fonte: " . $content_source);
+    error_log("Tamanho: " . strlen($markdown_content) . " caracteres");
+    error_log("✅ NÃO VAI CHAMAR A API - USANDO CONTEÚDO RECEBIDO VIA {$content_source}");
 }
 ?>
 <!DOCTYPE html>
