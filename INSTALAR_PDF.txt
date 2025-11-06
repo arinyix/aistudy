@@ -1,0 +1,60 @@
+================================================================================
+INSTRUÇÕES PARA INSTALAR CONVERSÃO DE PDF EM AIStudy
+================================================================================
+
+OPÇÃO 1: DomPDF (Recomendado - Mais Fácil)
+===========================================
+
+1. Baixe DomPDF:
+   - Acesse: https://github.com/dompdf/dompdf/releases
+   - Baixe: dompdf.zip (última versão)
+   
+2. Extraia o arquivo:
+   - Extraia o conteúdo para: vendor/dompdf/
+   - Estrutura: vendor/dompdf/src/, vendor/dompdf/lib/, etc.
+   
+3. Baixe dependências (se necessário):
+   - FontLib: https://github.com/phenx/php-font-lib
+   - SVGLib: https://github.com/phenx/php-svg-lib
+
+OPÇÃO 2: Via Composer (Mais Fácil)
+===================================
+
+Execute no terminal dentro da pasta do projeto:
+
+composer require dompdf/dompdf
+
+OU instale Composer primeiro:
+- Acesse: https://getcomposer.org/download/
+- Baixe e instale Composer
+- Depois execute: composer require dompdf/dompdf
+
+================================================================================
+STATUS ATUAL
+================================================================================
+
+✅ Sistema já funciona exibindo HTML bonito no navegador
+✅ Estilos PDF já implementados
+✅ Função de download HTML preparada
+⏳ Aguardando instalação de DomPDF para PDF real
+
+Quando DomPDF for instalado, o sistema automaticamente:
+1. Detectará a biblioteca
+2. Gerará PDFs reais
+3. Fará download automático de arquivos .pdf
+
+================================================================================
+COMO USAR DEPOIS DE INSTALAR
+================================================================================
+
+Nenhuma configuração adicional necessária!
+O sistema detecta automaticamente se DomPDF está instalado.
+
+Teste:
+1. Instale DomPDF (Opção 1 ou 2 acima)
+2. Gere um resumo auxiliar
+3. Clique em "Download PDF"
+4. Arquivo .pdf será baixado automaticamente!
+
+================================================================================
+

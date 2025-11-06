@@ -1,5 +1,5 @@
 <?php
-require_once 'config/database.php';
+require_once dirname(__DIR__) . '/config/database.php';
 
 class Task {
     private $conn;
@@ -75,47 +75,62 @@ class Task {
     }
     
     public function toggleStatus($task_id, $user_id) {
-        // Verificar se a tarefa pertence ao usuário
-        $checkQuery = "SELECT t.id FROM tasks t 
-                      JOIN routines r ON t.routine_id = r.id 
-                      WHERE t.id = :task_id AND r.user_id = :user_id";
-        
-        $checkStmt = $this->conn->prepare($checkQuery);
-        $checkStmt->bindParam(":task_id", $task_id);
-        $checkStmt->bindParam(":user_id", $user_id);
-        $checkStmt->execute();
-        
-        if ($checkStmt->rowCount() === 0) {
-            return false;
-        }
-        
-        // Alternar status da tarefa
-        $query = "UPDATE " . $this->table_name . " 
-                  SET status = CASE 
-                      WHEN status = 'pendente' THEN 'concluida'
-                      ELSE 'pendente'
-                  END
-                  WHERE id = :task_id";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(":task_id", $task_id);
-        
-        if ($stmt->execute()) {
-            // Atualizar progresso da rotina
-            $routineQuery = "SELECT routine_id FROM " . $this->table_name . " WHERE id = :task_id";
-            $routineStmt = $this->conn->prepare($routineQuery);
-            $routineStmt->bindParam(":task_id", $task_id);
-            $routineStmt->execute();
-            $routine = $routineStmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            error_log("toggleStatus called with task_id: " . $task_id . ", user_id: " . $user_id);
             
-            if ($routine) {
-                $this->updateRoutineProgress($routine['routine_id']);
+            // Verificar se a tarefa pertence ao usuário
+            $checkQuery = "SELECT t.id FROM tasks t 
+                          JOIN routines r ON t.routine_id = r.id 
+                          WHERE t.id = :task_id AND r.user_id = :user_id";
+            
+            $checkStmt = $this->conn->prepare($checkQuery);
+            $checkStmt->bindParam(":task_id", $task_id);
+            $checkStmt->bindParam(":user_id", $user_id);
+            $checkStmt->execute();
+            
+            error_log("Check query executed. Row count: " . $checkStmt->rowCount());
+            
+            if ($checkStmt->rowCount() === 0) {
+                error_log("Task does not belong to user or does not exist");
+                return false;
             }
             
-            return true;
+            // Alternar status da tarefa
+            $query = "UPDATE " . $this->table_name . " 
+                      SET status = CASE 
+                          WHEN status = 'pendente' THEN 'concluida'
+                          ELSE 'pendente'
+                      END
+                      WHERE id = :task_id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":task_id", $task_id);
+            
+            $executed = $stmt->execute();
+            error_log("Update query executed: " . ($executed ? 'true' : 'false'));
+            
+            if ($executed) {
+                // Atualizar progresso da rotina
+                $routineQuery = "SELECT routine_id FROM " . $this->table_name . " WHERE id = :task_id";
+                $routineStmt = $this->conn->prepare($routineQuery);
+                $routineStmt->bindParam(":task_id", $task_id);
+                $routineStmt->execute();
+                $routine = $routineStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($routine) {
+                    error_log("Updating routine progress for routine_id: " . $routine['routine_id']);
+                    $this->updateRoutineProgress($routine['routine_id']);
+                }
+                
+                return true;
+            }
+            
+            return false;
+        } catch (Exception $e) {
+            error_log("Exception in toggleStatus: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            return false;
         }
-        
-        return false;
     }
     
     private function updateRoutineProgress($routine_id) {

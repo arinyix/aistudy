@@ -1,7 +1,6 @@
 <?php
 require_once 'config/database.php';
 require_once 'classes/Routine.php';
-require_once 'classes/Quiz.php';
 require_once 'includes/session.php';
 
 requireLogin();
@@ -11,19 +10,14 @@ $user = getCurrentUser();
 $database = new Database();
 $db = $database->getConnection();
 $routine = new Routine($db);
-$quiz = new Quiz($db);
 
 // Buscar dados do usuário
 $routines = $routine->getUserRoutines($user['id']);
-$quizzes = $quiz->getUserQuizzes($user['id']);
-$media_quiz = $quiz->getAverageScore($user['id']);
 
 // Calcular estatísticas
 $total_routines = count($routines);
 $rotinas_ativas = count(array_filter($routines, function($r) { return $r['status'] === 'ativa'; }));
 $rotinas_concluidas = count(array_filter($routines, function($r) { return $r['status'] === 'concluida'; }));
-$total_quizzes = count($quizzes);
-$quizzes_concluidos = count(array_filter($quizzes, function($q) { return $q['status'] === 'concluido'; }));
 
 // Progresso médio das rotinas
 $progresso_medio = 0;
@@ -48,6 +42,17 @@ if ($filtro_rotina !== 'todas') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIStudy - Progresso</title>
+    
+    <!-- Aplicar tema ANTES de carregar estilos para evitar flash -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
@@ -82,6 +87,11 @@ if ($filtro_rotina !== 'todas') {
                     </li>
                 </ul>
                 <ul class="navbar-nav">
+                    <li class="nav-item me-3">
+                        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user me-1"></i><?php echo htmlspecialchars($user['nome']); ?>
@@ -150,35 +160,11 @@ if ($filtro_rotina !== 'todas') {
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-warning"><?php echo $quizzes_concluidos; ?></div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Quizzes Realizados</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-info"><?php echo number_format($media_quiz, 1); ?>%</div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Média nos Quizzes</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Gráficos -->
         <div class="row mb-4">
-            <div class="col-md-6 mb-4">
+            <div class="col-md-12 mb-4">
                 <div class="card">
                     <div class="card-header">
                         <h6 class="mb-0">
@@ -187,18 +173,6 @@ if ($filtro_rotina !== 'todas') {
                     </div>
                     <div class="card-body">
                         <canvas id="progressoChart" width="400" height="200"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-chart-bar me-2"></i>Desempenho nos Quizzes
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="quizChart" width="400" height="200"></canvas>
                     </div>
                 </div>
             </div>
@@ -280,6 +254,7 @@ if ($filtro_rotina !== 'todas') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/dark-mode.js"></script>
     <script>
         // Gráfico de Progresso das Rotinas
         const progressoCtx = document.getElementById('progressoChart').getContext('2d');
@@ -299,40 +274,6 @@ if ($filtro_rotina !== 'todas') {
                 plugins: {
                     legend: {
                         position: 'bottom'
-                    }
-                }
-            }
-        });
-
-        // Gráfico de Desempenho nos Quizzes
-        const quizCtx = document.getElementById('quizChart').getContext('2d');
-        const quizData = <?php echo json_encode(array_column($quizzes, 'nota')); ?>;
-        const quizLabels = <?php echo json_encode(array_map(function($q) { return substr($q['titulo'], 0, 20) . '...'; }, $quizzes)); ?>;
-        
-        new Chart(quizCtx, {
-            type: 'bar',
-            data: {
-                labels: quizLabels,
-                datasets: [{
-                    label: 'Nota (%)',
-                    data: quizData,
-                    backgroundColor: '#6366f1',
-                    borderColor: '#4f46e5',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
                     }
                 }
             }

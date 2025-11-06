@@ -47,6 +47,17 @@ if ($_POST) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIStudy - Login</title>
+    
+    <!-- Aplicar tema ANTES de carregar estilos para evitar flash -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
@@ -55,6 +66,11 @@ if ($_POST) {
     <div class="container">
         <div class="row justify-content-center min-vh-100 align-items-center">
             <div class="col-md-6 col-lg-5">
+                <div class="position-absolute top-0 end-0 m-4">
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
                 <div class="auth-card">
                     <div class="text-center mb-4">
                         <h1 class="auth-title">
@@ -136,6 +152,7 @@ if ($_POST) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/dark-mode.js"></script>
     <script>
         function showRegister() {
             document.getElementById('loginForm').style.display = 'none';

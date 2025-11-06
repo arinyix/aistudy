@@ -33,6 +33,17 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIStudy - Minhas Rotinas</title>
+    
+    <!-- Aplicar tema ANTES de carregar estilos para evitar flash -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
@@ -66,6 +77,11 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
                     </li>
                 </ul>
                 <ul class="navbar-nav">
+                    <li class="nav-item me-3">
+                        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user me-1"></i><?php echo htmlspecialchars($user['nome']); ?>
@@ -203,5 +219,6 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/dark-mode.js"></script>
 </body>
 </html>

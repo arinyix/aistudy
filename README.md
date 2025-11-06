@@ -21,17 +21,17 @@ Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e *
 - Datas reais: 21/10, 22/10, 28/10, etc.
 - Horários respeitados pelo sistema
 
-### 🎯 **Sistema de Quiz Inteligente**
-- Quizzes gerados automaticamente pela IA
-- 5 perguntas personalizadas por assunto
-- Sistema de correção automática
-- Feedback de desempenho
-
 ### 📊 **Acompanhamento de Progresso**
 - Estatísticas detalhadas de desempenho
 - Gráficos interativos com Chart.js
 - Relatórios de progresso por rotina
-- Média de acertos nos quizzes
+- Visualização de progresso das rotinas
+
+### 📄 **Resumo Auxiliar com IA**
+- Geração de resumos detalhados dos tópicos
+- Material de estudo completo com exercícios
+- Visualização em PDF viewer
+- Download de resumos formatados
 
 ### 🎨 **Interface Moderna**
 - Design responsivo com Bootstrap 5
@@ -42,10 +42,205 @@ Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e *
 ## 📋 Pré-requisitos
 
 ### **Sistema Necessário:**
-- **XAMPP** (Apache, MySQL, PHP 7.4+)
+- **XAMPP** (Apache, MySQL, PHP 7.4+) - [Baixar aqui](https://www.apachefriends.org/)
 - **Chave de API da OpenAI** (ChatGPT) - [Obter aqui](https://platform.openai.com/api-keys)
+- **Chave de API do YouTube Data API v3** - [Obter aqui](https://console.cloud.google.com/)
 - **Navegador web moderno** (Chrome, Firefox, Safari, Edge)
-- **Conexão com internet** (para API do ChatGPT)
+- **Conexão com internet** (para APIs externas e CDNs)
+
+### **📚 Resumo Rápido das Bibliotecas:**
+
+#### **✅ Bibliotecas JavaScript (CDN - Automático):**
+- Bootstrap 5.1.3 (CSS + JS)
+- Font Awesome 6.0.0
+- Chart.js
+- marked.js
+
+#### **✅ Bibliotecas PHP (Nativas):**
+- PDO
+- cURL
+- JSON
+
+#### **⚠️ APIs Externas (Requerem Configuração):**
+- OpenAI API (ChatGPT)
+- YouTube Data API v3
+
+#### **📄 Opcional:**
+- DomPDF (para PDFs - ver `INSTALAR_PDF.txt`)
+
+**📖 Para detalhes completos, veja a seção [📚 Bibliotecas e Dependências](#-bibliotecas-e-dependências) abaixo.**
+
+### **Extensões PHP Necessárias:**
+- **PDO** (habilitado por padrão no XAMPP)
+- **PDO MySQL** (habilitado por padrão no XAMPP)
+- **cURL** (habilitado por padrão no XAMPP)
+- **JSON** (habilitado por padrão no XAMPP)
+- **OpenSSL** (para requisições HTTPS)
+
+**Verificar Extensões:**
+```php
+// Criar arquivo test-extensions.php
+<?php
+echo "PDO: " . (extension_loaded('pdo') ? '✅' : '❌') . "<br>";
+echo "cURL: " . (extension_loaded('curl') ? '✅' : '❌') . "<br>";
+echo "JSON: " . (extension_loaded('json') ? '✅' : '❌') . "<br>";
+?>
+```
+
+## 📚 Bibliotecas e Dependências
+
+### **📦 Bibliotecas JavaScript (via CDN - Não Requer Instalação):**
+
+#### **1. Bootstrap 5.1.3**
+- **Uso:** Framework CSS/JS para interface responsiva
+- **Onde é usado:** Todas as páginas do sistema
+- **CDN CSS:** `https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css`
+- **CDN JS:** `https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js`
+- **Páginas que usam:** `dashboard.php`, `rotinas.php`, `criar-rotina.php`, `rotina-detalhada.php`, `progresso.php`, `configuracoes.php`, `login.php`
+
+#### **2. Font Awesome 6.0.0**
+- **Uso:** Biblioteca de ícones
+- **Onde é usado:** Todas as páginas do sistema
+- **CDN:** `https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css`
+- **Páginas que usam:** Todas as páginas principais
+
+#### **3. Chart.js**
+- **Uso:** Gráficos interativos para visualização de progresso
+- **Onde é usado:** `progresso.php`
+- **CDN:** `https://cdn.jsdelivr.net/npm/chart.js`
+- **Funcionalidade:** Gráficos de pizza e barras para progresso das rotinas
+
+#### **4. marked.js**
+- **Uso:** Conversor de Markdown para HTML (para Resumo Auxiliar)
+- **Onde é usado:** `rotina-detalhada.php`
+- **CDN:** `https://cdn.jsdelivr.net/npm/marked/marked.min.js`
+- **Funcionalidade:** Renderiza conteúdo Markdown dos resumos auxiliares gerados pela IA
+
+### **🔧 Bibliotecas PHP (Nativas - Não Requer Instalação):**
+
+#### **1. PDO (PHP Data Objects)**
+- **Uso:** Conexão com banco de dados MySQL
+- **Status:** Nativo do PHP 7.4+
+- **Arquivos que usam:** `config/database.php`, todas as classes em `classes/`
+
+#### **2. cURL**
+- **Uso:** Requisições HTTP para APIs (OpenAI, YouTube)
+- **Status:** Nativo do PHP (geralmente habilitado)
+- **Arquivos que usam:** `config/api.php`, `classes/YouTubeService.php`
+
+#### **3. JSON**
+- **Uso:** Codificação/decodificação de dados JSON
+- **Status:** Nativo do PHP (sempre habilitado)
+- **Arquivos que usam:** Todos os arquivos que lidam com APIs
+
+### **🌐 APIs Externas:**
+
+#### **1. OpenAI API (ChatGPT)**
+- **Uso:** Geração de planos de estudo e resumos auxiliares
+- **Chave:** Configurada em `config/api.php`
+- **Endpoint:** `https://api.openai.com/v1/chat/completions`
+- **Modelo usado:** `gpt-4o-mini`
+- **Como obter:** [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- **Arquivos que usam:** `config/api.php`, `criar-rotina.php`, `gerar-resumo.php`
+
+#### **2. YouTube Data API v3**
+- **Uso:** Busca de vídeos educacionais para materiais de estudo
+- **Chave:** Configurada em `classes/YouTubeService.php`
+- **Endpoint:** `https://www.googleapis.com/youtube/v3/`
+- **Como obter:** 
+  1. Acesse [Google Cloud Console](https://console.cloud.google.com/)
+  2. Crie um projeto
+  3. Habilite "YouTube Data API v3"
+  4. Crie uma chave de API
+- **Arquivos que usam:** `classes/YouTubeService.php`, `criar-rotina.php`
+
+### **📄 Bibliotecas Opcionais:**
+
+#### **1. DomPDF (Opcional - Para Geração de PDFs)**
+- **Uso:** Conversão de HTML/Markdown para PDF
+- **Status:** Opcional (sistema funciona sem ela)
+- **Instalação Manual:**
+  1. Baixe de: [https://github.com/dompdf/dompdf/releases](https://github.com/dompdf/dompdf/releases)
+  2. Extraia para: `vendor/dompdf/`
+- **Instalação via Composer:**
+  ```bash
+  composer require dompdf/dompdf
+  ```
+- **Arquivos relacionados:** `classes/PdfGenerator.php`, `gerar-resumo.php`
+- **Instruções completas:** Ver `INSTALAR_PDF.txt`
+
+### **📁 Arquivos JavaScript Locais:**
+
+#### **1. dark-mode.js**
+- **Localização:** `assets/js/dark-mode.js`
+- **Uso:** Sistema de modo escuro/claro
+- **Páginas que usam:** Todas as páginas principais
+- **Funcionalidade:** Toggle de tema, persistência via localStorage
+
+## 🔧 Configuração de APIs
+
+### **Passo 1: Configurar OpenAI API**
+
+1. **Obter Chave:**
+   - Acesse: https://platform.openai.com/api-keys
+   - Faça login na sua conta OpenAI
+   - Clique em **"Create new secret key"**
+   - Copie a chave gerada (começa com `sk-`)
+
+2. **Configurar no Sistema:**
+   - Abra: `config/api.php`
+   - Encontre a linha:
+     ```php
+     define('OPENAI_API_KEY', 'sua-chave-api-aqui');
+     ```
+   - Substitua por:
+     ```php
+     define('OPENAI_API_KEY', 'sk-sua-chave-real-aqui');
+     ```
+
+### **Passo 2: Configurar YouTube Data API**
+
+1. **Obter Chave:**
+   - Acesse: https://console.cloud.google.com/
+   - Crie um novo projeto (ou selecione existente)
+   - No menu, vá em **"APIs e Serviços" > "Biblioteca"**
+   - Procure por **"YouTube Data API v3"**
+   - Clique em **"Ativar"**
+   - Vá em **"Credenciais" > "Criar credenciais" > "Chave de API"**
+   - Copie a chave gerada
+
+2. **Configurar no Sistema:**
+   - Abra: `classes/YouTubeService.php`
+   - Encontre a linha:
+     ```php
+     private $apiKey = 'SUA_CHAVE_AQUI';
+     ```
+   - Substitua por sua chave da API do YouTube
+
+### **Passo 3: Verificar Extensões PHP**
+
+No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
+
+1. **Criar arquivo:** `test-extensions.php`
+2. **Adicionar código:**
+   ```php
+   <?php
+   phpinfo();
+   ?>
+   ```
+3. **Acessar:** http://localhost/aistudy/test-extensions.php
+4. **Verificar:** Procure por "curl", "pdo", "json" na página
+
+**Se alguma extensão estiver faltando:**
+
+1. Abra: `C:\xampp\php\php.ini`
+2. Procure pelas linhas e remova o `;` (ponto e vírgula) do início:
+   ```ini
+   extension=curl
+   extension=pdo_mysql
+   extension=openssl
+   ```
+3. Reinicie o Apache no XAMPP
 
 ## 🛠️ Instalação Passo a Passo
 
@@ -89,24 +284,44 @@ Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e *
    - Selecione o arquivo **`seed.sql`**
    - Clique em **"Executar"**
 
-### **Passo 3: Configurar Chave da API OpenAI**
+### **Passo 3: Configurar Chaves de API**
 
-1. **Obter Chave da API:**
+**⚠️ IMPORTANTE:** Você precisa configurar 2 APIs para o sistema funcionar completamente.
+
+#### **3.1. OpenAI API (ChatGPT):**
+
+1. **Obter Chave:**
    - Acesse: https://platform.openai.com/api-keys
    - Faça login na sua conta OpenAI
    - Clique em **"Create new secret key"**
    - Copie a chave gerada (começa com `sk-`)
 
 2. **Configurar no Sistema:**
-   - Abra o arquivo: `config/api.php`
+   - Abra: `config/api.php`
    - Encontre a linha:
      ```php
      define('OPENAI_API_KEY', 'sua-chave-api-aqui');
      ```
-   - Substitua por:
+   - Substitua por sua chave real
+
+#### **3.2. YouTube Data API v3:**
+
+1. **Obter Chave:**
+   - Acesse: https://console.cloud.google.com/
+   - Crie um novo projeto (ou selecione existente)
+   - No menu, vá em **"APIs e Serviços" > "Biblioteca"**
+   - Procure por **"YouTube Data API v3"**
+   - Clique em **"Ativar"**
+   - Vá em **"Credenciais" > "Criar credenciais" > "Chave de API"**
+   - Copie a chave gerada
+
+2. **Configurar no Sistema:**
+   - Abra: `classes/YouTubeService.php`
+   - Encontre a linha:
      ```php
-     define('OPENAI_API_KEY', 'sk-sua-chave-real-aqui');
+     private $apiKey = 'SUA_CHAVE_AQUI';
      ```
+   - Substitua por sua chave da API do YouTube
 
 ### **Passo 4: Instalar Arquivos do Sistema**
 
@@ -199,22 +414,22 @@ Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e *
    - Progresso é atualizado automaticamente
    - Sistema calcula percentual de conclusão
 
-### **4. Fazendo Quizzes Inteligentes**
+### **4. Usando Resumo Auxiliar**
 
-1. **Gerar Quiz:**
-   - Na rotina, clique em **"Fazer Quiz"**
-   - Sistema gera 5 perguntas automaticamente
-   - Sempre funciona (com fallback se API falhar)
+1. **Gerar Resumo:**
+   - Na rotina detalhada, clique em **"Resumo Auxiliar"** em qualquer tarefa
+   - Sistema gera resumo completo com IA
+   - Inclui: conceitos fundamentais, exemplos práticos e 15 exercícios
 
-2. **Responder Perguntas:**
-   - Selecione suas respostas
-   - Clique em **"Concluir Quiz"**
-   - Sistema corrige automaticamente
+2. **Visualizar Conteúdo:**
+   - Resumo é exibido em modal fullscreen
+   - Formatação profissional tipo PDF
+   - Navegação fácil pelo conteúdo
 
-3. **Ver Resultado:**
-   - Nota é calculada automaticamente
-   - Feedback personalizado
-   - Estatísticas são salvas
+3. **Download/Imprimir:**
+   - Clique em **"Imprimir/Salvar PDF"** para salvar como PDF
+   - Ou **"Download HTML"** para salvar arquivo HTML
+   - Conteúdo formatado e pronto para estudo
 
 ### **5. Acompanhando seu Progresso**
 
@@ -225,9 +440,9 @@ Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e *
    - Progresso geral
 
 2. **Página de Progresso:**
-   - Gráficos de desempenho
-   - Média de acertos nos quizzes
-   - Relatórios por rotina
+   - Gráficos de desempenho com Chart.js
+   - Progresso visualizado por rotina
+   - Relatórios detalhados
    - Filtros por período
 
 3. **Cronograma Visual:**

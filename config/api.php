@@ -1,6 +1,6 @@
 <?php
 // Configuração da API OpenAI
-define('OPENAI_API_KEY', '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'); // Substitua pela sua chave da OpenAI
+define('OPENAI_API_KEY', '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'); // Substitua pela sua chave da OpenAI
 define('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions');
 
 class OpenAIService {
@@ -173,33 +173,60 @@ class OpenAIService {
         return $this->makeAPICall($prompt, 4000);
     }
     
-    public function generateQuiz($tema, $nivel, $conteudo) {
-        $prompt = "Crie um quiz com 5 perguntas sobre {$tema} no nível {$nivel}. 
-        Baseado no conteúdo: {$conteudo}
+    public function generateSummaryPDF($topico, $nivel, $descricao) {
+        $prompt = "Você é um professor experiente e renomado. Crie um resumo auxiliar EXTREMAMENTE DETALHADO e COMPLETO sobre o tópico: {$topico}
         
-        Retorne APENAS um JSON válido com a seguinte estrutura:
-        {
-            'perguntas': [
-                {
-                    'pergunta': 'Texto da pergunta',
-                    'opcoes': ['Opção A', 'Opção B', 'Opção C', 'Opção D'],
-                    'resposta_correta': 0
-                }
-            ]
-        }
+        CONTEXTO:
+        - Tópico: {$topico}
+        - Nível: {$nivel}
+        - Descrição: {$descricao}
         
-        IMPORTANTE: 
-        - Retorne APENAS o JSON, sem texto adicional
-        - As perguntas devem ser desafiadoras mas apropriadas para o nível {$nivel}
-        - Use resposta_correta como índice (0, 1, 2, ou 3)
-        - Certifique-se de que o JSON seja válido";
-
-        return $this->makeAPICall($prompt);
+        FORMATO DE SAÍDA:
+        Você DEVE retornar APENAS código Markdown formatado para gerar um PDF bonito e bem estruturado.
+        
+        ESTRUTURA OBRIGATÓRIA (SEJA DETALHADO EM CADA SEÇÃO):
+        1. # TÍTULO PRINCIPAL (formatação: # Nome do Tópico)
+        2. ## INTRODUÇÃO - Contextualize profundamente o tópico (mínimo 3-4 parágrafos)
+        3. ## CONCEITOS FUNDAMENTAIS - Explique TODOS os conceitos principais de forma MUITO detalhada:
+           - Liste e explique cada conceito importante
+           - Use subtítulos (###) para cada conceito
+           - Dê exemplos para cada conceito explicado
+           - Mínimo 5 conceitos fundamentais
+        4. ## EXEMPLOS PRÁTICOS - Dê exemplos concretos e aplicações reais:
+           - Mínimo 3 exemplos detalhados
+           - Mostre passo a passo quando aplicável
+           - Use code blocks ou listas numeradas para passos
+        5. ## EXERCÍCIOS PRÁTICOS - Crie EXATAMENTE 15 exercícios variados:
+           - 5 exercícios de múltipla escolha (cada um com explicação das alternativas)
+           - 4 exercícios de preenchimento de lacunas
+           - 3 exercícios de verdadeiro/falso com explicação detalhada
+           - 3 exercícios práticos/criativos
+        6. ## GABARITO - Respostas de TODOS os exercícios:
+           - Explique o porquê de cada resposta correta
+           - Para múltipla escolha, explique por que as outras estão erradas
+           - Para verdadeiro/falso, explique detalhadamente cada item
+        7. ## DICAS DE ESTUDO - Mínimo 8 dicas práticas e úteis
+        8. ## CONCLUSÃO - Síntese final abrangente (mínimo 2 parágrafos)
+        
+        REGRAS CRÍTICAS:
+        - Use Markdown PROFISSIONALMENTE (# para títulos principais, ## para seções, ### para subtópicos, **para negrito**, *para itálico*)
+        - Seja EXTREMAMENTE detalhado e didático - este é um material de estudo completo
+        - Ajuste o nível de complexidade conforme '{$nivel}'
+        - Use emojis ESPARSAMENTE quando apropriado (não exagere)
+        - Mantenha o conteúdo 100% focado no tópico '{$topico}'
+        - Seja específico, NUNCA genérico
+        - Quanto MAIS DETALHADO, MELHOR
+        - Use listas, tabelas, code blocks quando apropriado
+        - O objetivo é criar um material que o aluno possa estudar completamente sobre o tópico
+        
+        RETORNE APENAS O MARKDOWN, SEM TEXTO ADICIONAL ANTES OU DEPOIS.";
+        
+        return $this->makeAPICall($prompt, 8000);
     }
     
     private function makeAPICall($prompt, $maxTokens = 2000) {
         $data = [
-            'model' => 'gpt-3.5-turbo',
+            'model' => 'gpt-4o-mini', // Modelo mais rápido e barato
             'messages' => [
                 [
                     'role' => 'user',
@@ -215,6 +242,11 @@ class OpenAIService {
             'Authorization: Bearer ' . $this->api_key
         ];
         
+        error_log("=== INICIANDO CHAMADA API ===");
+        error_log("URL: " . $this->api_url);
+        error_log("Model: " . $data['model']);
+        error_log("Max Tokens: " . $maxTokens);
+        
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $this->api_url);
         curl_setopt($ch, CURLOPT_POST, true);
@@ -222,18 +254,25 @@ class OpenAIService {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 300); // 5 minutos para requisições longas (resumos)
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30); // 30 segundos para conectar
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_USERAGENT, 'AIStudy/1.0');
         
+        error_log("Enviando requisição...");
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         curl_close($ch);
         
+        error_log("HTTP Code: " . $httpCode);
+        
         if ($curlError) {
+            error_log("Erro cURL: " . $curlError);
             throw new Exception('Erro de conexão: ' . $curlError);
         }
+        
+        error_log("Resposta recebida (primeiros 200 chars): " . substr($response, 0, 200));
         
         if ($httpCode === 200) {
             $result = json_decode($response, true);

@@ -58,7 +58,7 @@ try {
     echo "<h3>🔍 Verificando estrutura...</h3>";
     $pdo->exec("USE aistudy");
     
-    $tables = ['users', 'routines', 'tasks', 'quizzes', 'quiz_attempts', 'daily_progress', 'user_preferences', 'activity_logs', 'user_stats', 'study_materials'];
+    $tables = ['users', 'routines', 'tasks', 'daily_progress', 'user_preferences', 'activity_logs', 'user_stats', 'study_materials'];
     
     foreach ($tables as $table) {
         $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
@@ -77,7 +77,6 @@ try {
         'Usuários' => 'SELECT COUNT(*) as total FROM users',
         'Rotinas' => 'SELECT COUNT(*) as total FROM routines',
         'Tasks' => 'SELECT COUNT(*) as total FROM tasks',
-        'Quizzes' => 'SELECT COUNT(*) as total FROM quizzes',
         'Progresso Diário' => 'SELECT COUNT(*) as total FROM daily_progress'
     ];
     
