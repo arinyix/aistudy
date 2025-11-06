@@ -9,9 +9,44 @@ requireLogin();
 
 $user = getCurrentUser();
 $task_id = $_GET['task_id'] ?? null;
+$referrer = $_GET['referrer'] ?? 'rotinas.php'; // Página padrão se não houver referrer
 
 if (!$task_id || !is_numeric($task_id)) {
     die('Task ID inválido');
+}
+
+// Sanitizar referrer para segurança e extrair apenas o arquivo
+if (!empty($referrer) && $referrer !== 'rotinas.php') {
+    // Decodificar URL se necessário
+    $referrer = urldecode($referrer);
+    
+    // Extrair apenas o caminho do arquivo (remover domínio se houver)
+    $parsed = parse_url($referrer);
+    if ($parsed && isset($parsed['path'])) {
+        // Extrair apenas o nome do arquivo
+        $pathParts = explode('/', trim($parsed['path'], '/'));
+        $filename = end($pathParts);
+        
+        // Verificar se é um arquivo PHP válido
+        if (preg_match('/^[a-zA-Z0-9\-_]+\.php$/', $filename)) {
+            // Incluir query string se houver (apenas id, por exemplo)
+            $referrer = $filename;
+            if (isset($parsed['query'])) {
+                // Extrair apenas parâmetros seguros (id)
+                parse_str($parsed['query'], $queryParams);
+                if (isset($queryParams['id']) && is_numeric($queryParams['id'])) {
+                    $referrer .= '?id=' . intval($queryParams['id']);
+                }
+            }
+        } else {
+            $referrer = 'rotinas.php';
+        }
+    } elseif (!preg_match('/^[a-zA-Z0-9\-_]+\.php(\?id=\d+)?$/', $referrer)) {
+        // Se não for uma URL válida, usar padrão
+        $referrer = 'rotinas.php';
+    }
+} else {
+    $referrer = 'rotinas.php';
 }
 
 $database = new Database();
@@ -49,29 +84,55 @@ elseif (isset($_GET['content']) && !empty($_GET['content'])) {
     }
 }
 
-// Se não tiver conteúdo, gerar agora
+// Se não tiver conteúdo, verificar no banco primeiro
 if (empty($markdown_content)) {
-    error_log("Conteúdo não recebido. Gerando resumo para task_id: " . $task_id);
-    try {
-        $openai = new OpenAIService();
-        set_time_limit(360);
-        ini_set('max_execution_time', 360);
+    error_log("=== resumo-pdf.php: Conteúdo não recebido via POST/GET ===");
+    error_log("Verificando no banco de dados para task_id: " . $task_id);
+    
+    // Tentar buscar do banco de dados
+    $resumo_do_banco = $task->getResumo($task_id, $user['id']);
+    
+    // Verificação rigorosa
+    if ($resumo_do_banco !== null && $resumo_do_banco !== '' && trim($resumo_do_banco) !== '') {
+        error_log("✅ RESUMO ENCONTRADO NO BANCO - USANDO CACHE (SEM CHAMAR API)");
+        error_log("Tamanho do resumo: " . strlen($resumo_do_banco) . " caracteres");
+        $markdown_content = $resumo_do_banco;
+    } else {
+        // Se não tiver no banco, gerar agora (ULTIMA OPÇÃO)
+        error_log("❌ RESUMO NÃO ENCONTRADO NO BANCO - SERÁ NECESSÁRIO GERAR VIA API");
+        error_log("Task ID: " . $task_id);
         
-        $markdown_content = $openai->generateSummaryPDF(
-            $task_data['titulo'],
-            $rotina['nivel'],
-            $task_data['descricao']
-        );
-        
-        if (empty($markdown_content)) {
-            throw new Exception('Resumo gerado está vazio');
+        try {
+            $openai = new OpenAIService();
+            set_time_limit(360);
+            ini_set('max_execution_time', 360);
+            
+            error_log("⚠️ CHAMANDO API OPENAI PARA GERAR RESUMO...");
+            
+            $markdown_content = $openai->generateSummaryPDF(
+                $task_data['titulo'],
+                $rotina['nivel'],
+                $task_data['descricao']
+            );
+            
+            if (empty($markdown_content)) {
+                throw new Exception('Resumo gerado está vazio');
+            }
+            
+            error_log("✅ Resumo gerado com sucesso. Tamanho: " . strlen($markdown_content) . " caracteres");
+            
+            // Salvar no banco de dados
+            $saved = $task->saveResumo($task_id, $user['id'], $markdown_content);
+            if ($saved) {
+                error_log("✅ Resumo salvo no banco de dados com sucesso!");
+            } else {
+                error_log("❌ AVISO: Não foi possível salvar o resumo no banco de dados.");
+            }
+        } catch (Exception $e) {
+            error_log("❌ ERRO ao gerar resumo: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            die('Erro ao gerar resumo: ' . htmlspecialchars($e->getMessage()));
         }
-        
-        error_log("Resumo gerado com sucesso. Tamanho: " . strlen($markdown_content) . " caracteres");
-    } catch (Exception $e) {
-        error_log("ERRO ao gerar resumo: " . $e->getMessage());
-        error_log("Stack trace: " . $e->getTraceAsString());
-        die('Erro ao gerar resumo: ' . htmlspecialchars($e->getMessage()));
     }
 }
 ?>
@@ -328,7 +389,7 @@ if (empty($markdown_content)) {
         <button class="btn btn-secondary" onclick="window.print()">
             🖨️ Imprimir
         </button>
-        <button class="btn btn-secondary" onclick="window.close()">
+        <button class="btn btn-secondary" onclick="goBack()">
             ✕ Fechar
         </button>
     </div>
@@ -341,11 +402,42 @@ if (empty($markdown_content)) {
     </div>
 
     <script>
+        // URL de referência para voltar
+        const referrerUrl = <?php echo json_encode($referrer, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        
+        // Função para voltar à página de origem
+        function goBack() {
+            console.log('goBack chamado. Referrer:', referrerUrl);
+            
+            if (referrerUrl && referrerUrl !== '' && referrerUrl !== 'rotinas.php') {
+                // Se a janela foi aberta em nova aba/janela, tentar fechar
+                if (window.opener && !window.opener.closed) {
+                    // Fechar esta janela e focar na janela que abriu
+                    window.opener.focus();
+                    window.close();
+                } else {
+                    // Redirecionar para a página de origem
+                    window.location.href = referrerUrl;
+                }
+            } else {
+                // Fallback: tentar voltar no histórico ou fechar
+                if (window.opener && !window.opener.closed) {
+                    window.close();
+                } else if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    // Último recurso: ir para rotinas
+                    window.location.href = 'rotinas.php';
+                }
+            }
+        }
+        
         // Conteúdo markdown
         const markdownContent = <?php echo json_encode($markdown_content, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
         
         console.log('Markdown content length:', markdownContent ? markdownContent.length : 0);
         console.log('Primeiros 200 caracteres:', markdownContent ? markdownContent.substring(0, 200) : 'vazio');
+        console.log('Referrer URL:', referrerUrl);
         
         // Flag para evitar renderização múltipla
         let rendered = false;

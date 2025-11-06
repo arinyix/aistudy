@@ -575,9 +575,11 @@ $message = '';
                         }
                         
                         // Sempre usar POST para enviar o conteúdo (mais seguro e sem limite de tamanho)
+                        // Passar referrer para poder voltar depois
+                        const currentUrl = window.location.href;
                         const form = document.createElement('form');
                         form.method = 'POST';
-                        form.action = 'resumo-pdf.php?task_id=' + taskId;
+                        form.action = 'resumo-pdf.php?task_id=' + taskId + '&referrer=' + encodeURIComponent(currentUrl);
                         form.target = '_blank';
                         form.style.display = 'none';
                         

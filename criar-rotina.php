@@ -1,4 +1,11 @@
 <?php
+// Iniciar output buffering para evitar problemas de headers
+ob_start();
+
+// Configurar timeouts e error reporting
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
 require_once 'config/database.php';
 require_once 'config/api.php';
 require_once 'classes/Routine.php';
@@ -19,6 +26,14 @@ if ($_POST) {
     
     if ($tema && $nivel && $tempo_diario && !empty($dias_disponiveis) && $horario_disponivel) {
         try {
+            // Aumentar timeout para permitir geração do plano
+            set_time_limit(300); // 5 minutos
+            ini_set('max_execution_time', 300);
+            ini_set('max_input_time', 300);
+            
+            error_log("=== INICIANDO CRIAÇÃO DE ROTINA ===");
+            error_log("Tema: {$tema}, Nível: {$nivel}, Tempo: {$tempo_diario}min");
+            
             $database = new Database();
             $db = $database->getConnection();
             
@@ -32,15 +47,24 @@ if ($_POST) {
             $routine->dias_disponiveis = $dias_disponiveis;
             $routine->horario_disponivel = $horario_disponivel;
             
+            error_log("Criando rotina no banco de dados...");
             $routine_id = $routine->create();
             
             if ($routine_id) {
+                error_log("Rotina criada com sucesso! ID: {$routine_id}");
                 $plano_data = null;
                 
                 // Tentar gerar plano com IA
                 try {
+                    error_log("Iniciando geração de plano via API OpenAI...");
                     $openai = new OpenAIService();
+                    
+                    $start_time = microtime(true);
                     $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
+                    $end_time = microtime(true);
+                    $elapsed = round($end_time - $start_time, 2);
+                    
+                    error_log("Plano gerado em {$elapsed} segundos");
                     
                     // Log para debug
                     error_log("Resposta da API (primeiros 500 chars): " . substr($plano, 0, 500));
@@ -64,10 +88,44 @@ if ($_POST) {
                     }
                 } catch (Exception $e) {
                     // Log do erro completo
-                    error_log("Erro ao gerar plano: " . $e->getMessage());
+                    error_log("❌ ERRO ao gerar plano: " . $e->getMessage());
                     error_log("Stack trace: " . $e->getTraceAsString());
-                    // Se a API falhar, mostrar erro ao usuário
-                    $message = '<div class="alert alert-danger">Erro ao gerar plano com IA: ' . htmlspecialchars($e->getMessage()) . '<br>Tente novamente mais tarde.</div>';
+                    
+                    // Se a rotina foi criada mas o plano falhou, deletar a rotina órfã
+                    if ($routine_id) {
+                        try {
+                            $deleteQuery = "DELETE FROM routines WHERE id = :routine_id";
+                            $deleteStmt = $db->prepare($deleteQuery);
+                            $deleteStmt->bindParam(":routine_id", $routine_id);
+                            $deleteStmt->execute();
+                            error_log("Rotina órfã deletada (ID: {$routine_id})");
+                        } catch (Exception $deleteError) {
+                            error_log("Erro ao deletar rotina órfã: " . $deleteError->getMessage());
+                        }
+                    }
+                    
+                    // Mostrar erro ao usuário
+                    $errorMsg = htmlspecialchars($e->getMessage());
+                    if (strpos($errorMsg, 'timeout') !== false || strpos($errorMsg, 'timed out') !== false) {
+                        $message = '<div class="alert alert-danger">
+                            <strong>Erro de Timeout:</strong> A requisição demorou muito tempo. 
+                            <br><br>
+                            <strong>Possíveis causas:</strong>
+                            <ul>
+                                <li>A API do ChatGPT está lenta ou sobrecarregada</li>
+                                <li>Sua conexão com a internet está lenta</li>
+                                <li>O servidor está sobrecarregado</li>
+                            </ul>
+                            <br>
+                            <strong>Solução:</strong> Tente novamente em alguns minutos. Se o problema persistir, verifique sua conexão com a internet.
+                        </div>';
+                    } else {
+                        $message = '<div class="alert alert-danger">
+                            <strong>Erro ao gerar plano com IA:</strong> ' . $errorMsg . '
+                            <br><br>
+                            <strong>Tente novamente mais tarde.</strong>
+                        </div>';
+                    }
                 }
                 
                 // Debug: verificar estrutura do plano
@@ -137,17 +195,20 @@ if ($_POST) {
                                 $topico = $task->titulo; // Usar o título exato da tarefa como query
                                 
                                 // Buscar vídeos específicos para ESTE tópico exato
+                                // Adicionar timeout para evitar travamento
                                 $videosReais = $youtubeService->getEducationalVideos($topico, $nivel, 3);
                                 
                                 if (!empty($videosReais)) {
                                     // Sempre substituir pelos vídeos encontrados para este tópico
                                     $material['videos'] = $videosReais;
+                                    error_log("Vídeos encontrados para tópico '{$topico}': " . count($videosReais));
+                                } else {
+                                    error_log("Nenhum vídeo encontrado para tópico '{$topico}'");
                                 }
                             } catch (Exception $e) {
                                 // Se falhar, tentar manter os vídeos que já existem (se houver)
-                                if (empty($material['videos'])) {
-                                    error_log("Erro ao buscar vídeos para tópico '{$topico}': " . $e->getMessage());
-                                }
+                                error_log("Erro ao buscar vídeos para tópico '{$topico}': " . $e->getMessage());
+                                // Continuar sem vídeos do YouTube se houver erro
                             }
                             
                             // Garantir que sempre há textos e exercícios
@@ -167,9 +228,12 @@ if ($_POST) {
                     }
                     
                     if ($tarefas_criadas > 0) {
+                        error_log("✅ Rotina criada com sucesso! {$tarefas_criadas} tarefas criadas.");
+                        ob_end_clean(); // Limpar buffer antes de redirecionar
                         header("Location: rotina-detalhada.php?id=" . $routine_id);
                         exit();
                     } else {
+                        error_log("❌ Nenhuma tarefa foi criada para a rotina ID: {$routine_id}");
                         $message = '<div class="alert alert-danger">Erro: Nenhuma tarefa foi criada.</div>';
                     }
                 }
@@ -177,7 +241,13 @@ if ($_POST) {
                 $message = '<div class="alert alert-danger">Erro ao criar rotina. Tente novamente.</div>';
             }
         } catch (Exception $e) {
-            $message = '<div class="alert alert-danger">Erro: ' . $e->getMessage() . '</div>';
+            error_log("❌ ERRO GERAL na criação de rotina: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            $message = '<div class="alert alert-danger">
+                <strong>Erro ao criar rotina:</strong> ' . htmlspecialchars($e->getMessage()) . '
+                <br><br>
+                Verifique os logs do servidor para mais detalhes.
+            </div>';
         }
     } else {
         $message = '<div class="alert alert-warning">Preencha todos os campos obrigatórios.</div>';
@@ -359,9 +429,23 @@ if ($_POST) {
                                 <a href="dashboard.php" class="btn btn-outline-secondary">
                                     <i class="fas fa-arrow-left me-2"></i>Voltar
                                 </a>
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-primary" id="submitBtn">
                                     <i class="fas fa-magic me-2"></i>Gerar Plano de Estudos
                                 </button>
+                            </div>
+                            
+                            <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
+                                <div class="text-center text-white p-5" style="background: var(--card-bg); border-radius: 15px; max-width: 500px; margin: 20px;">
+                                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                                        <span class="visually-hidden">Carregando...</span>
+                                    </div>
+                                    <h4>Gerando Plano de Estudos</h4>
+                                    <p class="mb-2">Isso pode levar 30-90 segundos...</p>
+                                    <p class="small text-muted">Não feche esta página!</p>
+                                    <div class="progress mt-3" style="height: 8px;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -373,13 +457,41 @@ if ($_POST) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/dark-mode.js"></script>
     <script>
-        // Validação do formulário
+        // Validação do formulário e loading overlay
         document.querySelector('form').addEventListener('submit', function(e) {
             const diasSelecionados = document.querySelectorAll('input[name="dias_disponiveis[]"]:checked');
             if (diasSelecionados.length === 0) {
                 e.preventDefault();
                 alert('Selecione pelo menos um dia da semana disponível.');
+                return;
             }
+            
+            // Mostrar loading overlay
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            if (loadingOverlay && submitBtn) {
+                loadingOverlay.style.display = 'flex';
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando...';
+            }
+            
+            // Timeout de segurança - se demorar mais de 5 minutos, mostrar mensagem
+            setTimeout(function() {
+                if (loadingOverlay && loadingOverlay.style.display !== 'none') {
+                    const loadingContent = loadingOverlay.querySelector('.text-center');
+                    if (loadingContent) {
+                        loadingContent.innerHTML = `
+                            <h4>⏱️ Ainda processando...</h4>
+                            <p class="mb-2">A geração do plano está demorando mais que o esperado.</p>
+                            <p class="small text-muted">Por favor, aguarde mais alguns instantes...</p>
+                            <div class="progress mt-3" style="height: 8px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                            </div>
+                        `;
+                    }
+                }
+            }, 180000); // 3 minutos
         });
     </script>
 </body>

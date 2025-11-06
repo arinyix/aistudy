@@ -40,6 +40,37 @@ if (!$task_data) {
     exit();
 }
 
+// Verificar se já existe resumo salvo NO BANCO DE DADOS
+// IMPORTANTE: Esta verificação deve ser feita ANTES de qualquer chamada à API
+error_log("=== VERIFICANDO SE RESUMO JÁ EXISTE NO BANCO ===");
+error_log("Task ID: " . $task_id);
+error_log("User ID: " . $user['id']);
+
+$resumo_existente = $task->getResumo($task_id, $user['id']);
+
+// Verificação mais rigorosa: verificar se não é null, não é vazio e tem conteúdo
+if ($resumo_existente !== null && $resumo_existente !== '' && trim($resumo_existente) !== '') {
+    error_log("=== RESUMO JÁ EXISTE NO BANCO - RETORNANDO CACHE ===");
+    error_log("Task ID: " . $task_id);
+    error_log("Tamanho do resumo: " . strlen($resumo_existente) . " caracteres");
+    error_log("Primeiros 100 caracteres: " . substr($resumo_existente, 0, 100));
+    
+    // IMPORTANTE: NÃO CHAMAR A API - RETORNAR DIRETAMENTE O RESUMO DO BANCO
+    echo json_encode([
+        'success' => true, 
+        'content' => $resumo_existente,
+        'filename' => 'resumo_' . $task_id . '_' . time() . '.html',
+        'time_elapsed' => 0,
+        'cached' => true,
+        'message' => 'Resumo recuperado do banco de dados (sem chamada à API)'
+    ]);
+    exit();
+}
+
+error_log("=== RESUMO NÃO ENCONTRADO NO BANCO - VAI GERAR NOVO ===");
+error_log("Task ID: " . $task_id);
+error_log("SERÁ NECESSÁRIO CHAMAR A API DO CHATGPT");
+
 // Buscar rotina para pegar o nível
 $rotina = $routine->getRoutine($task_data['routine_id'], $user['id']);
 if (!$rotina) {
@@ -49,17 +80,32 @@ if (!$rotina) {
 
 try {
     
-    error_log("=== INICIANDO GERAÇÃO DE RESUMO ===");
+    // VERIFICAR NOVAMENTE ANTES DE CHAMAR A API (segurança extra)
+    $verificacao_final = $task->getResumo($task_id, $user['id']);
+    if ($verificacao_final !== null && $verificacao_final !== '' && trim($verificacao_final) !== '') {
+        error_log("=== VERIFICAÇÃO FINAL: RESUMO JÁ EXISTE - CANCELANDO CHAMADA À API ===");
+        echo json_encode([
+            'success' => true, 
+            'content' => $verificacao_final,
+            'filename' => 'resumo_' . $task_id . '_' . time() . '.html',
+            'time_elapsed' => 0,
+            'cached' => true,
+            'message' => 'Resumo recuperado do banco (evitada chamada à API)'
+        ]);
+        exit();
+    }
+    
+    error_log("=== CONFIRMADO: RESUMO NÃO EXISTE - INICIANDO GERAÇÃO VIA API ===");
     error_log("Task ID: " . $task_id);
     error_log("Tópico: " . $task_data['titulo']);
     error_log("Nível: " . $rotina['nivel']);
     
-    // Chamar API
+    // AGORA SIM, chamar API (apenas se não existir no banco)
     set_time_limit(240); // 4 minutos
     ini_set('max_execution_time', 240);
     
     $openai = new OpenAIService();
-    error_log("Chamando API OpenAI para gerar resumo...");
+    error_log("⚠️ CHAMANDO API OPENAI PARA GERAR RESUMO...");
     error_log("Tempo limite: 180 segundos (3 minutos)");
     
     $start_time = microtime(true);
@@ -75,18 +121,28 @@ try {
         throw new Exception('Resumo gerado está vazio');
     }
     
-    error_log("Resumo gerado com sucesso em {$elapsed} segundos (tamanho: " . strlen($markdown_content) . " caracteres)");
+    error_log("✅ Resumo gerado com sucesso em {$elapsed} segundos (tamanho: " . strlen($markdown_content) . " caracteres)");
+    
+    // Salvar resumo no banco de dados
+    $saved = $task->saveResumo($task_id, $user['id'], $markdown_content);
+    if ($saved) {
+        error_log("✅ Resumo salvo no banco de dados com sucesso!");
+    } else {
+        error_log("❌ AVISO: Não foi possível salvar o resumo no banco de dados, mas será retornado mesmo assim.");
+    }
     
     // Retornar conteúdo markdown
     echo json_encode([
         'success' => true, 
         'content' => $markdown_content,
         'filename' => 'resumo_' . $task_id . '_' . time() . '.html',
-        'time_elapsed' => $elapsed
+        'time_elapsed' => $elapsed,
+        'cached' => false,
+        'message' => 'Resumo gerado via API e salvo no banco'
     ]);
     
 } catch (Exception $e) {
-    error_log("ERRO ao gerar resumo: " . $e->getMessage());
+    error_log("❌ ERRO ao gerar resumo: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
     echo json_encode([
         'success' => false, 

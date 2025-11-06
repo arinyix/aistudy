@@ -172,5 +172,73 @@ class Task {
         
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+    
+    /**
+     * Salvar resumo markdown na tarefa
+     */
+    public function saveResumo($task_id, $user_id, $resumo_markdown) {
+        // Verificar se a tarefa pertence ao usuário
+        $checkQuery = "SELECT t.id FROM tasks t 
+                      JOIN routines r ON t.routine_id = r.id 
+                      WHERE t.id = :task_id AND r.user_id = :user_id";
+        
+        $checkStmt = $this->conn->prepare($checkQuery);
+        $checkStmt->bindParam(":task_id", $task_id);
+        $checkStmt->bindParam(":user_id", $user_id);
+        $checkStmt->execute();
+        
+        if ($checkStmt->rowCount() === 0) {
+            return false;
+        }
+        
+        // Atualizar resumo
+        $query = "UPDATE " . $this->table_name . " 
+                  SET resumo_markdown = :resumo_markdown,
+                      updated_at = CURRENT_TIMESTAMP
+                  WHERE id = :task_id";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":resumo_markdown", $resumo_markdown);
+        $stmt->bindParam(":task_id", $task_id);
+        
+        return $stmt->execute();
+    }
+    
+    /**
+     * Obter resumo markdown da tarefa
+     */
+    public function getResumo($task_id, $user_id) {
+        $query = "SELECT t.resumo_markdown 
+                  FROM tasks t 
+                  JOIN routines r ON t.routine_id = r.id 
+                  WHERE t.id = :task_id AND r.user_id = :user_id";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":task_id", $task_id);
+        $stmt->bindParam(":user_id", $user_id);
+        $stmt->execute();
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result && isset($result['resumo_markdown'])) {
+            $resumo = $result['resumo_markdown'];
+            // Verificar se não é NULL e não é string vazia
+            if ($resumo !== null && $resumo !== '' && trim($resumo) !== '') {
+                error_log("Resumo encontrado no banco para task_id: {$task_id}, tamanho: " . strlen($resumo) . " caracteres");
+                return $resumo;
+            }
+        }
+        
+        error_log("Resumo NÃO encontrado no banco para task_id: {$task_id}");
+        return null;
+    }
+    
+    /**
+     * Verificar se a tarefa já tem resumo salvo
+     */
+    public function hasResumo($task_id, $user_id) {
+        $resumo = $this->getResumo($task_id, $user_id);
+        return !empty($resumo);
+    }
 }
 ?>

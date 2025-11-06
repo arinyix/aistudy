@@ -45,6 +45,7 @@ CREATE TABLE tasks (
     ordem INT NOT NULL COMMENT 'ordem dentro do dia',
     status ENUM('pendente', 'concluida') DEFAULT 'pendente',
     material_estudo JSON COMMENT 'links, textos, etc.',
+    resumo_markdown LONGTEXT DEFAULT NULL COMMENT 'resumo auxiliar gerado em markdown',
     tempo_estimado INT DEFAULT NULL COMMENT 'tempo estimado em minutos',
     dificuldade ENUM('facil', 'medio', 'dificil') DEFAULT 'medio',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
