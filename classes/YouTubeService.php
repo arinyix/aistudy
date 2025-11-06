@@ -10,12 +10,11 @@ class YouTubeService {
     private $cacheFile = 'cache/youtube_cache.json';
     
     public function __construct() {
-        // Tentar ler do .env primeiro, depois fallback para valor hardcoded (compatibilidade)
+        // Ler do .env
         if (defined('YOUTUBE_API_KEY') && !empty(YOUTUBE_API_KEY)) {
             $this->apiKey = YOUTUBE_API_KEY;
         } else {
-            // Fallback para compatibilidade (remover em produção)
-            $this->apiKey = 'AIzaSyD53gr0KoYXYvPNMQ282BIstKoFRIha1Yw';
+            $this->apiKey = '';
         }
         
         // Verificar se a chave está definida
