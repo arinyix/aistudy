@@ -287,12 +287,12 @@ $message = '';
     <!-- Modal para Resumo Auxiliar (Fullscreen) -->
     <div class="modal fade" id="resumoModal" tabindex="-1" aria-labelledby="resumoModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+            <div class="modal-content resumo-modal-content">
+                <div class="modal-header resumo-modal-header">
                     <h5 class="modal-title" id="resumoModalLabel">
                         <i class="fas fa-file-pdf me-2"></i>Resumo Auxiliar
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close resumo-modal-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="resumoContent" style="padding: 2rem;">
                     <div class="text-center py-5">
@@ -302,7 +302,7 @@ $message = '';
                         <p class="mt-3 fs-5">Gerando resumo auxiliar... Isso pode levar alguns segundos.</p>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
+                <div class="modal-footer resumo-modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times me-1"></i>Fechar
                     </button>
@@ -474,21 +474,63 @@ $message = '';
             const modal = new bootstrap.Modal(document.getElementById('resumoModal'));
             modal.show();
             
-            // Resetar conteúdo
+            // Resetar conteúdo com feedback visual melhorado
             document.getElementById('resumoContent').innerHTML = `
                 <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
                         <span class="visually-hidden">Gerando resumo...</span>
                     </div>
-                    <p class="mt-3">Gerando resumo auxiliar... Isso pode levar alguns segundos.</p>
+                    <h5 class="mt-4 mb-2">Gerando Resumo Auxiliar</h5>
+                    <p class="text-muted mb-3">Isso pode levar 30-90 segundos...</p>
+                    <div class="progress" style="max-width: 400px; margin: 0 auto;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <p class="mt-3 small text-muted" id="loadingStatus">Aguardando resposta da API...</p>
                 </div>
             `;
             document.getElementById('downloadPDFBtn').style.display = 'none';
             
+            // Atualizar status de loading
+            let statusMessages = [
+                'Aguardando resposta da API...',
+                'Processando conteúdo...',
+                'Gerando resumo detalhado...',
+                'Quase finalizado...'
+            ];
+            let statusIndex = 0;
+            const statusInterval = setInterval(() => {
+                const statusEl = document.getElementById('loadingStatus');
+                if (statusEl) {
+                    statusEl.textContent = statusMessages[statusIndex % statusMessages.length];
+                    statusIndex++;
+                }
+            }, 2000);
+            
+            // Armazenar interval para limpar depois
+            window.resumoLoadingInterval = statusInterval;
+            
             // Fazer requisição
-                       // Criar AbortController para timeout customizado (6 minutos)
-           const controller = new AbortController();
-           const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutos
+            // Criar AbortController para timeout customizado (3 minutos)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+                // Limpar interval de status
+                if (window.resumoLoadingInterval) {
+                    clearInterval(window.resumoLoadingInterval);
+                }
+                // Mostrar mensagem de timeout
+                document.getElementById('resumoContent').innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-clock me-2"></i>
+                        <strong>A requisição está demorando mais que o esperado.</strong>
+                        <br><br>
+                        <p>A API pode estar sobrecarregada ou sua conexão está lenta.</p>
+                        <button class="btn btn-sm btn-primary" onclick="gerarResumoAuxiliar(${taskId}, '${topico}')">
+                            <i class="fas fa-redo me-1"></i>Tentar Novamente
+                        </button>
+                    </div>
+                `;
+            }, 180000); // 3 minutos
            
            fetch('gerar-resumo.php', {
                method: 'POST',
@@ -500,6 +542,17 @@ $message = '';
            })
             .then(response => {
                clearTimeout(timeoutId);
+               // Limpar interval de status
+               if (window.resumoLoadingInterval) {
+                   clearInterval(window.resumoLoadingInterval);
+               }
+               
+               // Atualizar status
+               const statusEl = document.getElementById('loadingStatus');
+               if (statusEl) {
+                   statusEl.textContent = 'Recebendo resposta...';
+               }
+               
                return response.text();
            })
             .then(text => {
@@ -509,30 +562,43 @@ $message = '';
                     console.log('Parsed data:', data);
                     
                     if (data.success && data.content) {
-                        console.log('Conteúdo recebido, renderizando markdown...');
-                        console.log('Primeiros 200 caracteres do conteúdo:', data.content.substring(0, 200));
+                        console.log('Conteúdo recebido com sucesso. Tamanho:', data.content.length, 'caracteres');
                         
-                        // Função para renderizar quando marked.js estiver pronto
-                        function renderWhenReady() {
-                            // Verificar se marked.js está disponível
-                            if (typeof marked === 'undefined') {
-                                console.log('marked.js ainda não carregou, tentando novamente em 100ms...');
-                                setTimeout(renderWhenReady, 100);
-                                return;
-                            }
-                            
-                            console.log('marked.js está disponível, renderizando...');
-                            // Renderizar conteúdo
-                            renderMarkdown(data.content);
-                            document.getElementById('downloadPDFBtn').style.display = 'inline-block';
-                            document.getElementById('downloadHTMLBtn').style.display = 'inline-block';
-                            document.getElementById('downloadHTMLBtn').onclick = () => {
-                                downloadHTML(data.filename, data.content);
-                            };
+                        // Atualizar status
+                        const statusEl = document.getElementById('loadingStatus');
+                        if (statusEl) {
+                            statusEl.textContent = 'Abrindo visualizador...';
                         }
                         
-                        // Aguardar um pouco e tentar renderizar
-                        setTimeout(renderWhenReady, 50);
+                        // Sempre usar POST para enviar o conteúdo (mais seguro e sem limite de tamanho)
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = 'resumo-pdf.php?task_id=' + taskId;
+                        form.target = '_blank';
+                        form.style.display = 'none';
+                        
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'content';
+                        input.value = data.content;
+                        
+                        form.appendChild(input);
+                        document.body.appendChild(form);
+                        
+                        // Submeter formulário
+                        form.submit();
+                        
+                        // Remover formulário após um delay
+                        setTimeout(() => {
+                            if (form.parentNode) {
+                                document.body.removeChild(form);
+                            }
+                        }, 1000);
+                        
+                        // Fechar modal
+                        setTimeout(() => {
+                            modal.hide();
+                        }, 500);
                     } else {
                         document.getElementById('resumoContent').innerHTML = `
                             <div class="alert alert-danger">
@@ -553,19 +619,30 @@ $message = '';
             })
                        .catch(error => {
                clearTimeout(timeoutId);
+               // Limpar interval de status
+               if (window.resumoLoadingInterval) {
+                   clearInterval(window.resumoLoadingInterval);
+               }
+               
                console.error('Erro na requisição:', error);
                
                let errorMessage = 'Erro ao gerar resumo. ';
                if (error.name === 'AbortError') {
-                   errorMessage += 'A requisição demorou muito tempo. Isso pode acontecer se o resumo for muito extenso. Tente novamente.';
-               } else {
+                   errorMessage += 'A requisição demorou muito tempo (mais de 6 minutos). Isso pode acontecer se a API estiver lenta. Tente novamente.';
+               } else if (error.message) {
                    errorMessage += error.message;
+               } else {
+                   errorMessage += 'Erro desconhecido. Verifique sua conexão e tente novamente.';
                }
                
                document.getElementById('resumoContent').innerHTML = `
                    <div class="alert alert-danger">
                        <i class="fas fa-exclamation-triangle me-2"></i>
-                       ${errorMessage}
+                       <strong>Erro:</strong> ${errorMessage}
+                       <br><br>
+                       <button class="btn btn-sm btn-primary" onclick="gerarResumoAuxiliar(${taskId}, '${topico}')">
+                           <i class="fas fa-redo me-1"></i>Tentar Novamente
+                       </button>
                    </div>
                `;
            });

@@ -54,29 +54,40 @@ try {
     error_log("Tópico: " . $task_data['titulo']);
     error_log("Nível: " . $rotina['nivel']);
     
-    // Chamar API - aumentar timeouts para resumos longos
-    set_time_limit(360); // 6 minutos
-    ini_set('max_execution_time', 360);
+    // Chamar API
+    set_time_limit(240); // 4 minutos
+    ini_set('max_execution_time', 240);
+    
     $openai = new OpenAIService();
     error_log("Chamando API OpenAI para gerar resumo...");
+    error_log("Tempo limite: 180 segundos (3 minutos)");
     
+    $start_time = microtime(true);
     $markdown_content = $openai->generateSummaryPDF(
         $task_data['titulo'], 
         $rotina['nivel'], 
         $task_data['descricao']
     );
+    $end_time = microtime(true);
+    $elapsed = round($end_time - $start_time, 2);
     
-    error_log("Resumo gerado com sucesso (tamanho: " . strlen($markdown_content) . " caracteres)");
+    if (empty($markdown_content)) {
+        throw new Exception('Resumo gerado está vazio');
+    }
+    
+    error_log("Resumo gerado com sucesso em {$elapsed} segundos (tamanho: " . strlen($markdown_content) . " caracteres)");
     
     // Retornar conteúdo markdown
     echo json_encode([
         'success' => true, 
         'content' => $markdown_content,
-        'filename' => 'resumo_' . $task_id . '_' . time() . '.html'
+        'filename' => 'resumo_' . $task_id . '_' . time() . '.html',
+        'time_elapsed' => $elapsed
     ]);
     
 } catch (Exception $e) {
-    error_log("ERRO: " . $e->getMessage());
+    error_log("ERRO ao gerar resumo: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     echo json_encode([
         'success' => false, 
         'message' => 'Erro ao gerar resumo: ' . $e->getMessage()

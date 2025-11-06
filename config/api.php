@@ -20,9 +20,12 @@ class OpenAIService {
         $this->api_url = OPENAI_API_URL;
         
         // Verificar se a chave está definida
-        if (empty($this->api_key)) {
-            throw new Exception('Chave da API OpenAI não definida');
+        if (empty($this->api_key) || $this->api_key === '' || strpos($this->api_key, 'sua-chave') !== false) {
+            error_log("ERRO: Chave da API OpenAI não está configurada corretamente!");
+            throw new Exception('Chave da API OpenAI não definida. Por favor, configure OPENAI_API_KEY no arquivo .env');
         }
+        
+        error_log("API Key carregada (primeiros 10 chars): " . substr($this->api_key, 0, 10) . "...");
     }
     
     public function generateStudyPlan($tema, $nivel, $tempoDiario, $diasDisponiveis, $horario) {
@@ -182,54 +185,28 @@ class OpenAIService {
     }
     
     public function generateSummaryPDF($topico, $nivel, $descricao) {
-        $prompt = "Você é um professor experiente e renomado. Crie um resumo auxiliar EXTREMAMENTE DETALHADO e COMPLETO sobre o tópico: {$topico}
+        $prompt = "Crie um resumo auxiliar DETALHADO sobre: {$topico}
         
-        CONTEXTO:
-        - Tópico: {$topico}
-        - Nível: {$nivel}
-        - Descrição: {$descricao}
+        Nível: {$nivel}
+        Descrição: {$descricao}
         
-        FORMATO DE SAÍDA:
-        Você DEVE retornar APENAS código Markdown formatado para gerar um PDF bonito e bem estruturado.
+        Retorne APENAS Markdown formatado (sem texto adicional).
         
-        ESTRUTURA OBRIGATÓRIA (SEJA DETALHADO EM CADA SEÇÃO):
-        1. # TÍTULO PRINCIPAL (formatação: # Nome do Tópico)
-        2. ## INTRODUÇÃO - Contextualize profundamente o tópico (mínimo 3-4 parágrafos)
-        3. ## CONCEITOS FUNDAMENTAIS - Explique TODOS os conceitos principais de forma MUITO detalhada:
-           - Liste e explique cada conceito importante
-           - Use subtítulos (###) para cada conceito
-           - Dê exemplos para cada conceito explicado
-           - Mínimo 5 conceitos fundamentais
-        4. ## EXEMPLOS PRÁTICOS - Dê exemplos concretos e aplicações reais:
-           - Mínimo 3 exemplos detalhados
-           - Mostre passo a passo quando aplicável
-           - Use code blocks ou listas numeradas para passos
-        5. ## EXERCÍCIOS PRÁTICOS - Crie EXATAMENTE 15 exercícios variados:
-           - 5 exercícios de múltipla escolha (cada um com explicação das alternativas)
-           - 4 exercícios de preenchimento de lacunas
-           - 3 exercícios de verdadeiro/falso com explicação detalhada
-           - 3 exercícios práticos/criativos
-        6. ## GABARITO - Respostas de TODOS os exercícios:
-           - Explique o porquê de cada resposta correta
-           - Para múltipla escolha, explique por que as outras estão erradas
-           - Para verdadeiro/falso, explique detalhadamente cada item
-        7. ## DICAS DE ESTUDO - Mínimo 8 dicas práticas e úteis
-        8. ## CONCLUSÃO - Síntese final abrangente (mínimo 2 parágrafos)
+        ESTRUTURA:
+        1. # {$topico}
+        2. ## INTRODUÇÃO (2-3 parágrafos)
+        3. ## CONCEITOS FUNDAMENTAIS (4-5 conceitos com subtítulos ###)
+        4. ## EXEMPLOS PRÁTICOS (2-3 exemplos)
+        5. ## EXERCÍCIOS (10 exercícios: 4 múltipla escolha, 3 preenchimento, 2 V/F, 1 prático)
+        6. ## GABARITO (respostas explicadas)
+        7. ## DICAS DE ESTUDO (5 dicas)
+        8. ## CONCLUSÃO (1-2 parágrafos)
         
-        REGRAS CRÍTICAS:
-        - Use Markdown PROFISSIONALMENTE (# para títulos principais, ## para seções, ### para subtópicos, **para negrito**, *para itálico*)
-        - Seja EXTREMAMENTE detalhado e didático - este é um material de estudo completo
-        - Ajuste o nível de complexidade conforme '{$nivel}'
-        - Use emojis ESPARSAMENTE quando apropriado (não exagere)
-        - Mantenha o conteúdo 100% focado no tópico '{$topico}'
-        - Seja específico, NUNCA genérico
-        - Quanto MAIS DETALHADO, MELHOR
-        - Use listas, tabelas, code blocks quando apropriado
-        - O objetivo é criar um material que o aluno possa estudar completamente sobre o tópico
+        Use Markdown: # títulos, ## seções, ### subtópicos, **negrito**, *itálico*, - listas, 1. numeradas.
+        Seja específico e detalhado sobre {$topico} no nível {$nivel}.";
         
-        RETORNE APENAS O MARKDOWN, SEM TEXTO ADICIONAL ANTES OU DEPOIS.";
-        
-        return $this->makeAPICall($prompt, 8000);
+        // Reduzir tokens para acelerar (5000 tokens)
+        return $this->makeAPICall($prompt, 5000);
     }
     
     private function makeAPICall($prompt, $maxTokens = 2000) {
@@ -242,7 +219,8 @@ class OpenAIService {
                 ]
             ],
             'max_tokens' => $maxTokens,
-            'temperature' => 0.7
+            'temperature' => 0.7,
+            'stream' => false // Garantir que não use streaming
         ];
         
         $headers = [
@@ -262,13 +240,19 @@ class OpenAIService {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 300); // 5 minutos para requisições longas (resumos)
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30); // 30 segundos para conectar
+        curl_setopt($ch, CURLOPT_TIMEOUT, 180); // 3 minutos total
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 20); // 20 segundos para conectar
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_USERAGENT, 'AIStudy/1.0');
+        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
         
-        error_log("Enviando requisição...");
+        error_log("Enviando requisição para API OpenAI...");
+        error_log("Tamanho do prompt: " . strlen($prompt) . " caracteres");
+        $startTime = microtime(true);
         $response = curl_exec($ch);
+        $endTime = microtime(true);
+        $elapsedTime = round($endTime - $startTime, 2);
+        error_log("Tempo de resposta da API: " . $elapsedTime . " segundos");
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         curl_close($ch);

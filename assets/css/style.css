@@ -694,229 +694,386 @@ select option {
     color: var(--text-primary);
 }
 
+/* Resumo Auxiliar - Modal Styles (Tema do Site) */
+#resumoModal .resumo-modal-content {
+    background-color: var(--card-bg) !important;
+    border: none;
+    box-shadow: 0 10px 40px var(--card-shadow);
+}
+
+#resumoModal .resumo-modal-header {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    border-bottom: 1px solid var(--border-default);
+    padding: 1rem 1.5rem;
+}
+
+#resumoModal .resumo-modal-header .modal-title {
+    color: white !important;
+    font-weight: 600;
+}
+
+#resumoModal .resumo-modal-close {
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+    background-color: transparent !important;
+}
+
+#resumoModal .resumo-modal-close:hover {
+    opacity: 1;
+}
+
+/* Garantir que o botão de fechar seja branco no header azul */
+#resumoModal .resumo-modal-header .resumo-modal-close {
+    filter: brightness(0) invert(1);
+}
+
+#resumoModal .resumo-modal-footer {
+    background-color: var(--bg-secondary) !important;
+    border-top: 1px solid var(--border-default);
+    padding: 1rem 1.5rem;
+}
+
 /* Resumo Auxiliar - PDF Viewer Styles */
 #resumoContent {
     max-height: calc(100vh - 200px);
     overflow-y: auto;
-    padding: 0;
-    background: white !important;
+    overflow-x: hidden;
+    padding: 20px;
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.8;
 }
 
 /* Container principal do documento */
 #resumoContent .document-container {
     max-width: 210mm;
+    min-width: 100%;
     margin: 0 auto;
-    padding: 40px;
-    background: white !important;
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    padding: 50px 60px;
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 0 20px var(--card-shadow);
+    border-radius: 8px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 #resumoContent h1 {
-    color: #1e40af;
+    color: var(--primary-color);
     font-size: 2.5rem;
     font-weight: 700;
-    border-bottom: 3px solid #4f46e5;
+    border-bottom: 3px solid var(--primary-color);
     padding-bottom: 15px;
     margin-bottom: 30px;
     margin-top: 0;
+    line-height: 1.3;
+    page-break-after: avoid;
 }
 
 #resumoContent h2 {
-    color: #6366f1;
+    color: var(--primary-color);
     font-size: 2rem;
     font-weight: 600;
     margin-top: 40px;
     margin-bottom: 20px;
-    border-left: 5px solid #6366f1;
     padding-left: 15px;
+    border-left: 5px solid var(--primary-color);
+    line-height: 1.4;
+    page-break-after: avoid;
 }
 
 #resumoContent h3 {
-    color: #4f46e5;
+    color: var(--secondary-color);
     font-size: 1.5rem;
     font-weight: 600;
     margin-top: 30px;
     margin-bottom: 15px;
+    line-height: 1.4;
+    page-break-after: avoid;
 }
 
 #resumoContent h4 {
-    color: #5b21b6;
+    color: var(--secondary-color);
     font-size: 1.25rem;
     font-weight: 600;
     margin-top: 25px;
     margin-bottom: 12px;
+    line-height: 1.4;
+    page-break-after: avoid;
+}
+
+#resumoContent h5 {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+#resumoContent h6 {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    line-height: 1.4;
 }
 
 #resumoContent p {
     line-height: 1.8;
     margin-bottom: 16px;
+    margin-top: 0;
     font-size: 1.05rem;
-    color: #1f2937;
+    color: var(--text-primary);
     text-align: justify;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    page-break-inside: avoid;
+}
+
+/* Parágrafos após títulos */
+#resumoContent h1 + p,
+#resumoContent h2 + p,
+#resumoContent h3 + p,
+#resumoContent h4 + p {
+    margin-top: 10px;
 }
 
 #resumoContent strong {
-    color: #1e40af;
+    color: var(--primary-color);
     font-weight: 600;
 }
 
 #resumoContent em {
-    color: #475569;
+    color: var(--text-secondary);
     font-style: italic;
 }
 
 #resumoContent ul,
 #resumoContent ol {
     margin: 20px 0;
+    margin-left: 0;
     padding-left: 40px;
+    line-height: 1.8;
+    page-break-inside: avoid;
 }
 
 #resumoContent li {
-    margin: 10px 0;
+    margin: 8px 0;
     line-height: 1.8;
     font-size: 1.05rem;
+    color: var(--text-primary);
+    page-break-inside: avoid;
 }
 
 #resumoContent ul li {
     list-style-type: disc;
+    list-style-position: outside;
 }
 
 #resumoContent ol li {
     list-style-type: decimal;
+    list-style-position: outside;
+}
+
+/* Listas aninhadas */
+#resumoContent ul ul,
+#resumoContent ol ol,
+#resumoContent ul ol,
+#resumoContent ol ul {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding-left: 30px;
 }
 
 #resumoContent code {
-    background: #f3f4f6;
-    padding: 4px 8px;
+    background: var(--bg-tertiary);
+    padding: 3px 6px;
     border-radius: 4px;
-    font-family: 'Courier New', 'Consolas', monospace;
-    font-size: 0.95rem;
-    color: #dc2626;
+    font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+    font-size: 0.9em;
+    color: var(--danger-color);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 #resumoContent pre {
-    background: #f8fafc;
+    background: var(--bg-tertiary);
     padding: 20px;
     border-radius: 8px;
     overflow-x: auto;
+    overflow-y: hidden;
     margin: 20px 0;
-    border-left: 4px solid #6366f1;
+    border-left: 4px solid var(--primary-color);
+    page-break-inside: avoid;
+    word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 #resumoContent pre code {
     background: none;
     padding: 0;
-    color: #1f2937;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    display: block;
 }
 
 #resumoContent blockquote {
-    border-left: 5px solid #4f46e5;
-    padding-left: 20px;
+    border-left: 5px solid var(--primary-color);
     margin: 25px 0;
-    font-style: italic;
-    color: #475569;
-    background: #f8fafc;
     padding: 15px 20px;
+    font-style: italic;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
     border-radius: 4px;
+    page-break-inside: avoid;
 }
 
-#resumoContent hr {
-    border: none;
-    border-top: 2px solid #e5e7eb;
-    margin: 30px 0;
+#resumoContent blockquote p {
+    margin-bottom: 10px;
+    margin-top: 0;
 }
+
+#resumoContent blockquote p:last-child {
+    margin-bottom: 0;
+}
+
 
 #resumoContent table {
     width: 100%;
     border-collapse: collapse;
     margin: 25px 0;
     font-size: 1rem;
+    page-break-inside: avoid;
+    overflow-x: auto;
+    display: block;
+}
+
+#resumoContent table thead,
+#resumoContent table tbody {
+    display: table;
+    width: 100%;
 }
 
 #resumoContent table th,
 #resumoContent table td {
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--border-default);
     padding: 12px 15px;
     text-align: left;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 #resumoContent table th {
-    background: #6366f1;
+    background: var(--primary-color);
     color: white;
     font-weight: 600;
 }
 
 #resumoContent table tr:nth-child(even) {
-    background: #f9fafb;
+    background: var(--bg-tertiary);
+}
+
+#resumoContent table tr {
+    page-break-inside: avoid;
 }
 
 /* Estilos especiais para exercícios */
 #resumoContent .exercise-container {
-    background: #fef3c7;
-    border-left: 5px solid #f59e0b;
+    background: var(--bg-tertiary);
+    border-left: 5px solid var(--warning-color);
     padding: 20px;
     margin: 30px 0;
     border-radius: 8px;
+    page-break-inside: avoid;
 }
 
 #resumoContent .exercise-container h4 {
-    color: #d97706;
+    color: var(--warning-color);
     margin-top: 0;
+    margin-bottom: 15px;
+}
+
+#resumoContent .exercise-container p {
+    margin-bottom: 12px;
 }
 
 #resumoContent .answer-container {
-    background: #d1fae5;
-    border-left: 5px solid #10b981;
+    background: var(--bg-tertiary);
+    border-left: 5px solid var(--success-color);
     padding: 20px;
     margin: 30px 0;
     border-radius: 8px;
+    page-break-inside: avoid;
 }
 
 #resumoContent .answer-container h4 {
-    color: #059669;
+    color: var(--success-color);
     margin-top: 0;
+    margin-bottom: 15px;
 }
 
-/* Dark mode para PDF viewer */
+#resumoContent .answer-container p {
+    margin-bottom: 12px;
+}
+
+/* Links */
+#resumoContent a {
+    color: var(--primary-color);
+    text-decoration: underline;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#resumoContent a:hover {
+    color: var(--secondary-color);
+}
+
+/* Imagens */
+#resumoContent img {
+    max-width: 100%;
+    height: auto;
+    margin: 20px 0;
+    border-radius: 8px;
+    page-break-inside: avoid;
+}
+
+/* Separadores visuais */
+#resumoContent hr {
+    border: none;
+    border-top: 2px solid var(--border-default);
+    margin: 30px 0;
+    page-break-inside: avoid;
+}
+
+/* Modo escuro - ajustes específicos se necessário */
 [data-theme="dark"] #resumoContent {
-    background: white !important; /* Sempre branco para PDF viewer */
+    background: var(--bg-primary) !important;
 }
 
 [data-theme="dark"] #resumoContent .document-container {
-    background: white !important; /* Sempre branco para PDF viewer */
-    box-shadow: 0 0 20px rgba(0,0,0,0.3);
-}
-
-[data-theme="dark"] #resumoContent h1,
-[data-theme="dark"] #resumoContent h2,
-[data-theme="dark"] #resumoContent h3,
-[data-theme="dark"] #resumoContent h4,
-[data-theme="dark"] #resumoContent h5,
-[data-theme="dark"] #resumoContent h6,
-[data-theme="dark"] #resumoContent p,
-[data-theme="dark"] #resumoContent li,
-[data-theme="dark"] #resumoContent span,
-[data-theme="dark"] #resumoContent div {
-    color: #1f2937 !important; /* Sempre texto escuro para PDF viewer */
+    background: var(--card-bg) !important;
+    box-shadow: 0 0 20px var(--card-shadow);
 }
 
 [data-theme="dark"] #resumoContent code {
     background: var(--bg-tertiary);
-    color: #f87171;
+    color: var(--danger-color);
 }
 
 [data-theme="dark"] #resumoContent pre {
     background: var(--bg-tertiary);
 }
 
-[data-theme="dark"] #resumoContent table th,
-[data-theme="dark"] #resumoContent table td {
-    border-color: var(--border-default);
-}
-
-[data-theme="dark"] #resumoContent table tr:nth-child(even) {
+[data-theme="dark"] #resumoContent blockquote {
     background: var(--bg-tertiary);
+    border-left-color: var(--primary-color);
 }
 
 /* Estilos de Impressão para PDF */
