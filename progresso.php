@@ -124,14 +124,16 @@ if ($filtro_rotina !== 'todas') {
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container mt-5 mb-5">
         <!-- Header -->
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h1 class="text-gradient">Meu Progresso</h1>
-                        <p class="text-muted">Acompanhe seu desempenho e evolução nos estudos</p>
+                        <h1 class="text-gradient mb-3" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">
+                            Meu Progresso
+                        </h1>
+                        <p class="text-muted" style="font-size: 1.1rem;">Acompanhe seu desempenho e evolução nos estudos</p>
                     </div>
                     <div class="d-flex gap-2">
                         <select class="form-select" id="filtroRotina" onchange="filtrarRotina()">
@@ -148,28 +150,26 @@ if ($filtro_rotina !== 'todas') {
         </div>
 
         <!-- Estatísticas Gerais -->
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-primary"><?php echo $total_routines; ?></div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Total de Rotinas</div>
-                        </div>
+                <div class="stat-card stat-card-primary">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-list-ul stat-icon"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number text-primary"><?php echo $total_routines; ?></div>
+                        <div class="stat-label">Total de Rotinas</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-success"><?php echo $rotinas_concluidas; ?></div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Rotinas Concluídas</div>
-                        </div>
+                <div class="stat-card stat-card-success">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-check-circle stat-icon"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number text-success"><?php echo $rotinas_concluidas; ?></div>
+                        <div class="stat-label">Rotinas Concluídas</div>
                     </div>
                 </div>
             </div>
@@ -184,7 +184,7 @@ if ($filtro_rotina !== 'todas') {
                             <i class="fas fa-chart-pie me-2"></i>Progresso das Rotinas
                         </h6>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" style="padding: 2rem;">
                         <canvas id="progressoChart" width="400" height="200"></canvas>
                     </div>
                 </div>

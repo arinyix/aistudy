@@ -187,7 +187,7 @@ class Calendar {
         $dayOfWeekJson = '"' . $dayOfWeek . '"';
         
         // Buscar tarefas para a data específica, mas com progressão sequencial
-        $query = "SELECT t.*, r.titulo as rotina_titulo, r.dias_disponiveis, r.horario_disponivel,
+        $query = "SELECT t.*, r.id as routine_id, r.titulo as rotina_titulo, r.dias_disponiveis, r.horario_disponivel,
                          (SELECT COUNT(*) FROM tasks t2 WHERE t2.routine_id = t.routine_id AND t2.dia_estudo <= t.dia_estudo AND t2.status = 'concluida') as tarefas_concluidas_antes
                   FROM tasks t 
                   JOIN routines r ON t.routine_id = r.id 

@@ -136,14 +136,16 @@ $message = '';
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container mt-5 mb-5">
         <!-- Header -->
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h1 class="text-gradient"><?php echo htmlspecialchars($rotina['titulo']); ?></h1>
-                        <p class="text-muted">
+                        <h1 class="text-gradient mb-3" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">
+                            <?php echo htmlspecialchars($rotina['titulo']); ?>
+                        </h1>
+                        <p class="text-muted" style="font-size: 1.1rem;">
                             <i class="fas fa-tag me-1"></i><?php echo htmlspecialchars($rotina['tema']); ?> • 
                             <i class="fas fa-signal me-1"></i><?php echo ucfirst($rotina['nivel']); ?> • 
                             <i class="fas fa-clock me-1"></i><?php echo $rotina['tempo_diario']; ?> min/dia
@@ -159,16 +161,18 @@ $message = '';
         </div>
 
         <!-- Progresso -->
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0">Progresso da Rotina</h6>
-                            <span class="badge bg-primary"><?php echo number_format($rotina['progresso'], 1); ?>%</span>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0 fw-bold" style="font-size: 1.1rem;">Progresso da Rotina</h6>
+                            <span class="badge bg-primary" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                                <?php echo number_format($rotina['progresso'], 1); ?>%
+                            </span>
                         </div>
-                        <div class="progress">
-                            <div class="progress-bar" style="width: <?php echo $rotina['progresso']; ?>%"></div>
+                        <div class="progress" style="height: 16px;">
+                            <div class="progress-bar" style="width: <?php echo $rotina['progresso']; ?>%; background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));"></div>
                         </div>
                     </div>
                 </div>
@@ -190,12 +194,12 @@ $message = '';
             <?php else: ?>
                 <?php foreach ($tasks_por_dia as $dia => $tarefas_dia): ?>
                     <div class="col-12 mb-4">
-                        <div class="card">
+                        <div class="card day-card">
                             <div class="card-header">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <h5 class="mb-0">
+                                    <h5 class="mb-0 fw-bold">
                                         <i class="fas fa-calendar-day me-2"></i>Dia <?php echo $dia; ?>
-                                        <span class="badge bg-primary ms-2">
+                                        <span class="badge ms-2" style="background: rgba(255, 255, 255, 0.2) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3);">
                                             <?php 
                                             $concluidas = count(array_filter($tarefas_dia, function($t) { return $t['status'] === 'concluida'; }));
                                             echo $concluidas . '/' . count($tarefas_dia);

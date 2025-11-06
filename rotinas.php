@@ -101,14 +101,16 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container mt-5 mb-5">
         <!-- Header -->
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h1 class="text-gradient">Minhas Rotinas</h1>
-                        <p class="text-muted">Gerencie suas rotinas de estudos</p>
+                        <h1 class="text-gradient mb-3" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">
+                            Minhas Rotinas
+                        </h1>
+                        <p class="text-muted" style="font-size: 1.1rem;">Gerencie suas rotinas de estudos</p>
                     </div>
                     <a href="criar-rotina.php" class="btn btn-primary">
                         <i class="fas fa-plus me-2"></i>Nova Rotina
@@ -137,11 +139,11 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
             <?php else: ?>
                 <?php foreach ($routines as $rotina): ?>
                     <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card h-100">
+                        <div class="card routine-card h-100">
                             <div class="card-header">
                                 <div class="d-flex justify-content-between align-items-start">
-                                    <h6 class="mb-0"><?php echo htmlspecialchars($rotina['titulo']); ?></h6>
-                                    <span class="badge bg-<?php echo $rotina['status'] === 'ativa' ? 'success' : ($rotina['status'] === 'pausada' ? 'warning' : 'secondary'); ?>">
+                                    <h6 class="mb-0 fw-bold"><?php echo htmlspecialchars($rotina['titulo']); ?></h6>
+                                    <span class="badge routine-status-badge bg-<?php echo $rotina['status'] === 'ativa' ? 'success' : ($rotina['status'] === 'pausada' ? 'warning' : 'secondary'); ?>">
                                         <?php echo ucfirst($rotina['status']); ?>
                                     </span>
                                 </div>

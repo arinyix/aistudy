@@ -121,62 +121,60 @@ sort($nextStudyDates);
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container mt-5 mb-5">
         <!-- Header -->
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-12">
-                <h1 class="text-gradient">Bem-vindo, <?php echo htmlspecialchars($user['nome']); ?>!</h1>
-                <p class="text-muted">Aqui está seu resumo de estudos para hoje</p>
+                <h1 class="text-gradient mb-3" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">
+                    Bem-vindo, <?php echo htmlspecialchars($user['nome']); ?>! 👋
+                </h1>
+                <p class="text-muted" style="font-size: 1.1rem;">Aqui está seu resumo de estudos para hoje</p>
             </div>
         </div>
 
         <!-- Estatísticas -->
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-primary"><?php echo $totalRoutines; ?></div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Total de Rotinas</div>
-                        </div>
+                <div class="stat-card stat-card-primary">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-list-ul stat-icon"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number text-primary"><?php echo $totalRoutines; ?></div>
+                        <div class="stat-label">Total de Rotinas</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-success"><?php echo $activeRoutines; ?></div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Rotinas Ativas</div>
-                        </div>
+                <div class="stat-card stat-card-success">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-play-circle stat-icon"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number text-success"><?php echo $activeRoutines; ?></div>
+                        <div class="stat-label">Rotinas Ativas</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-warning"><?php echo $completedToday; ?></div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Concluídas Hoje</div>
-                        </div>
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-check-circle stat-icon"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number text-warning"><?php echo $completedToday; ?></div>
+                        <div class="stat-label">Concluídas Hoje</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
-                <div class="stat-card">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <div class="stat-number text-info"><?php echo $totalToday; ?></div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <div class="stat-label">Tarefas Hoje</div>
-                        </div>
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-tasks stat-icon"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number text-info"><?php echo $totalToday; ?></div>
+                        <div class="stat-label">Tarefas Hoje</div>
                     </div>
                 </div>
             </div>
@@ -292,27 +290,60 @@ sort($nextStudyDates);
                     <?php foreach ($nextStudyDates as $date): ?>
                         <?php $tasksGrouped = $calendar->getTasksForSpecificDate($user['id'], $date); ?>
                         <?php if (!empty($tasksGrouped)): ?>
+                            <?php 
+                            // Pegar rotinas únicas das tarefas
+                            $rotinasUnicas = [];
+                            foreach ($tasksGrouped as $task) {
+                                if (!isset($rotinasUnicas[$task['routine_id']])) {
+                                    $rotinasUnicas[$task['routine_id']] = [
+                                        'id' => $task['routine_id'],
+                                        'titulo' => $task['rotina_titulo'],
+                                        'tasks' => []
+                                    ];
+                                }
+                                $rotinasUnicas[$task['routine_id']]['tasks'][] = $task;
+                            }
+                            
+                            // Se houver apenas uma rotina, usar ela. Se houver múltiplas, usar a primeira
+                            $rotinasArray = array_values($rotinasUnicas);
+                            $primaryRoutine = $rotinasArray[0] ?? null;
+                            $routineId = $primaryRoutine['id'] ?? null;
+                            $hasMultipleRoutines = count($rotinasUnicas) > 1;
+                            ?>
                             <div class="col-md-6 col-lg-4 mb-3">
-                                <div class="card study-day-card">
-                                    <div class="card-header study-day-header">
-                                        <h6 class="mb-0">
-                                            <i class="fas fa-calendar-day me-2"></i>
-                                            <?php echo date('d/m/Y', strtotime($date)); ?>
-                                            <span class="badge study-day-badge ms-2"><?php echo count($tasksGrouped); ?> assunto<?php echo count($tasksGrouped) > 1 ? 's' : ''; ?></span>
-                                        </h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <?php foreach (array_slice($tasksGrouped, 0, 2) as $task): ?>
-                                            <div class="d-flex align-items-center mb-2">
-                                                <i class="fas fa-circle study-day-bullet me-2"></i>
-                                                <small class="study-day-text"><?php echo htmlspecialchars($task['titulo']); ?></small>
+                                <a href="rotina-detalhada.php?id=<?php echo $routineId; ?>" class="text-decoration-none study-day-card-link">
+                                    <div class="card study-day-card">
+                                        <div class="card-header study-day-header">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-calendar-day me-2"></i>
+                                                <?php echo date('d/m/Y', strtotime($date)); ?>
+                                                <span class="badge study-day-badge ms-2"><?php echo count($tasksGrouped); ?> assunto<?php echo count($tasksGrouped) > 1 ? 's' : ''; ?></span>
+                                                <?php if ($hasMultipleRoutines): ?>
+                                                    <span class="badge ms-2" style="background: rgba(255, 255, 255, 0.25) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3);">
+                                                        <i class="fas fa-layer-group me-1"></i><?php echo count($rotinasUnicas); ?> rotina<?php echo count($rotinasUnicas) > 1 ? 's' : ''; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <?php foreach (array_slice($tasksGrouped, 0, 2) as $task): ?>
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <i class="fas fa-circle study-day-bullet me-2"></i>
+                                                    <small class="study-day-text"><?php echo htmlspecialchars($task['titulo']); ?></small>
+                                                </div>
+                                            <?php endforeach; ?>
+                                            <?php if (count($tasksGrouped) > 2): ?>
+                                                <small class="study-day-text">+<?php echo count($tasksGrouped) - 2; ?> mais...</small>
+                                            <?php endif; ?>
+                                            <div class="mt-3 pt-2 border-top" style="border-color: var(--border-default) !important;">
+                                                <small class="text-muted d-flex align-items-center">
+                                                    <i class="fas fa-arrow-right me-1"></i>
+                                                    <span>Ver rotina: <?php echo htmlspecialchars($primaryRoutine['titulo'] ?? 'Rotina'); ?></span>
+                                                </small>
                                             </div>
-                                        <?php endforeach; ?>
-                                        <?php if (count($tasksGrouped) > 2): ?>
-                                            <small class="study-day-text">+<?php echo count($tasksGrouped) - 2; ?> mais...</small>
-                                        <?php endif; ?>
+                                        </div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                         <?php endif; ?>
                     <?php endforeach; ?>
