@@ -1,17 +1,26 @@
 <?php
 require_once 'config/database.php';
 
+// Carregar variáveis de ambiente do arquivo .env
+require_once dirname(__DIR__) . '/config/env-loader.php';
+
 class YouTubeService {
     private $apiKey;
     private $baseUrl = 'https://www.googleapis.com/youtube/v3/';
     private $cacheFile = 'cache/youtube_cache.json';
     
     public function __construct() {
-        $this->apiKey = 'AIzaSyD53gr0KoYXYvPNMQ282BIstKoFRIha1Yw';
+        // Tentar ler do .env primeiro, depois fallback para valor hardcoded (compatibilidade)
+        if (defined('YOUTUBE_API_KEY') && !empty(YOUTUBE_API_KEY)) {
+            $this->apiKey = YOUTUBE_API_KEY;
+        } else {
+            // Fallback para compatibilidade (remover em produção)
+            $this->apiKey = 'AIzaSyD53gr0KoYXYvPNMQ282BIstKoFRIha1Yw';
+        }
         
         // Verificar se a chave está definida
         if (empty($this->apiKey)) {
-            throw new Exception('Chave da API do YouTube não definida');
+            throw new Exception('Chave da API do YouTube não definida. Por favor, configure YOUTUBE_API_KEY no arquivo .env');
         }
         
         // Criar diretório de cache se não existir

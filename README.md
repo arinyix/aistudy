@@ -288,7 +288,22 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
 
 **⚠️ IMPORTANTE:** Você precisa configurar 2 APIs para o sistema funcionar completamente.
 
-#### **3.1. OpenAI API (ChatGPT):**
+#### **3.1. Criar arquivo `.env`:**
+
+1. **Copiar o arquivo de exemplo:**
+   ```bash
+   # Windows (PowerShell)
+   Copy-Item .env.example .env
+   
+   # Linux/Mac
+   cp .env.example .env
+   ```
+
+2. **Editar o arquivo `.env`:**
+   - Abra o arquivo `.env` na raiz do projeto
+   - Preencha com suas chaves reais (veja os passos abaixo)
+
+#### **3.2. Obter e Configurar OpenAI API Key (ChatGPT):**
 
 1. **Obter Chave:**
    - Acesse: https://platform.openai.com/api-keys
@@ -296,15 +311,15 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
    - Clique em **"Create new secret key"**
    - Copie a chave gerada (começa com `sk-`)
 
-2. **Configurar no Sistema:**
-   - Abra: `config/api.php`
-   - Encontre a linha:
-     ```php
-     define('OPENAI_API_KEY', 'sua-chave-api-aqui');
+2. **Configurar no `.env`:**
+   - Abra o arquivo `.env`
+   - Encontre a linha: `OPENAI_API_KEY=sk-sua-chave-openai-aqui`
+   - Substitua por sua chave real:
+     ```env
+     OPENAI_API_KEY=sk-sua-chave-real-aqui
      ```
-   - Substitua por sua chave real
 
-#### **3.2. YouTube Data API v3:**
+#### **3.3. Obter e Configurar YouTube Data API v3 Key:**
 
 1. **Obter Chave:**
    - Acesse: https://console.cloud.google.com/
@@ -315,13 +330,15 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
    - Vá em **"Credenciais" > "Criar credenciais" > "Chave de API"**
    - Copie a chave gerada
 
-2. **Configurar no Sistema:**
-   - Abra: `classes/YouTubeService.php`
-   - Encontre a linha:
-     ```php
-     private $apiKey = 'SUA_CHAVE_AQUI';
+2. **Configurar no `.env`:**
+   - Abra o arquivo `.env`
+   - Encontre a linha: `YOUTUBE_API_KEY=sua-chave-youtube-aqui`
+   - Substitua por sua chave real:
+     ```env
+     YOUTUBE_API_KEY=sua-chave-real-aqui
      ```
-   - Substitua por sua chave da API do YouTube
+
+**📖 Para instruções detalhadas, veja o arquivo `CONFIGURAR_ENV.md`**
 
 ### **Passo 4: Instalar Arquivos do Sistema**
 

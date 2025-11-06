@@ -1,0 +1,27 @@
+# Arquivos de ambiente - NÃO COMMITAR!
+.env
+
+# Cache
+cache/*.json
+cache/*.cache
+
+# Logs
+*.log
+error_log
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos temporários
+*.tmp
+*.temp
+~$*
+

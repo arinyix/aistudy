@@ -1,7 +1,15 @@
 <?php
+// Carregar variáveis de ambiente do arquivo .env
+require_once __DIR__ . '/env-loader.php';
+
 // Configuração da API OpenAI
-define('OPENAI_API_KEY', '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'); // Substitua pela sua chave da OpenAI
-define('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions');
+// Se não estiver definido no .env, usar valores padrão (para compatibilidade)
+if (!defined('OPENAI_API_KEY')) {
+    define('OPENAI_API_KEY', '');
+}
+if (!defined('OPENAI_API_URL')) {
+    define('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions');
+}
 
 class OpenAIService {
     private $api_key;
