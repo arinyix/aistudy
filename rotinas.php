@@ -2,6 +2,7 @@
 require_once 'config/database.php';
 require_once 'classes/Routine.php';
 require_once 'includes/session.php';
+require_once 'includes/navbar.php';
 
 requireLogin();
 
@@ -11,8 +12,14 @@ $database = new Database();
 $db = $database->getConnection();
 $routine = new Routine($db);
 
-// Buscar rotinas do usuário
-$routines = $routine->getUserRoutines($user['id']);
+// Filtro por tipo
+$filtro_tipo = $_GET['tipo'] ?? null;
+if ($filtro_tipo && !in_array($filtro_tipo, ['geral', 'enem', 'concurso'])) {
+    $filtro_tipo = null;
+}
+
+// Buscar rotinas do usuário (com filtro opcional)
+$routines = $routine->getUserRoutines($user['id'], $filtro_tipo);
 
 // Processar exclusão de rotina
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
@@ -23,7 +30,7 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
         $message = '<div class="alert alert-danger">Erro ao excluir rotina!</div>';
     }
     // Recarregar rotinas após exclusão
-    $routines = $routine->getUserRoutines($user['id']);
+    $routines = $routine->getUserRoutines($user['id'], $filtro_tipo);
 }
 ?>
 
@@ -49,69 +56,18 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-brain text-primary"></i> AIStudy
-            </a>
-            
-            <!-- Container com toggle switch (mobile) e hambúrguer - apenas no mobile -->
-            <div class="d-flex align-items-center gap-2 d-lg-none">
-                <button class="theme-toggle-switch" onclick="toggleTheme()" type="button" aria-label="Alternar tema">
-                    <span class="theme-toggle-slider"></span>
-                </button>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-            </div>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-home me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="rotinas.php">
-                            <i class="fas fa-list me-1"></i>Minhas Rotinas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="progresso.php">
-                            <i class="fas fa-chart-line me-1"></i>Progresso
-                        </a>
-                    </li>
-                </ul>
-                
-                <ul class="navbar-nav">
-                    <!-- Botão de tema para desktop -->
-                    <li class="nav-item me-3 d-none d-lg-block">
-                        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
-                            <i class="fas fa-moon"></i>
-                        </button>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-1"></i><?php echo htmlspecialchars($user['nome']); ?>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="configuracoes.php">
-                                <i class="fas fa-cog me-2"></i>Configurações
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="logout.php">
-                                <i class="fas fa-sign-out-alt me-2"></i>Sair
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
+    <?php $active = 'rotinas'; render_navbar($active); ?>
+    
     <div class="container mt-5 mb-5">
+        <?php if ($flash = getFlash()): ?>
+            <?php if (!empty($flash['success'])): ?>
+                <div class="alert alert-success"><i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($flash['success']); ?></div>
+            <?php endif; ?>
+            <?php if (!empty($flash['error'])): ?>
+                <div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i><?php echo htmlspecialchars($flash['error']); ?></div>
+            <?php endif; ?>
+        <?php endif; ?>
+        
         <!-- Header -->
         <div class="row mb-5">
             <div class="col-12">
@@ -153,9 +109,16 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
                             <div class="card-header">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <h6 class="mb-0 fw-bold"><?php echo htmlspecialchars($rotina['titulo']); ?></h6>
-                                    <span class="badge routine-status-badge bg-<?php echo $rotina['status'] === 'ativa' ? 'success' : ($rotina['status'] === 'pausada' ? 'warning' : 'secondary'); ?>">
-                                        <?php echo ucfirst($rotina['status']); ?>
-                                    </span>
+                                    <div class="d-flex flex-column align-items-end gap-1">
+                                        <?php if (!empty($rotina['tipo']) && $rotina['tipo'] !== 'geral'): ?>
+                                            <span class="badge bg-info">
+                                                <?php echo strtoupper($rotina['tipo']); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        <span class="badge routine-status-badge bg-<?php echo $rotina['status'] === 'ativa' ? 'success' : ($rotina['status'] === 'pausada' ? 'warning' : 'secondary'); ?>">
+                                            <?php echo ucfirst($rotina['status']); ?>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body">

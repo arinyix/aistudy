@@ -195,6 +195,71 @@ class OpenAIService {
         return $this->makeAPICall($prompt, 8000);
     }
     
+    public function generateEnemPlan($dadosEnem) {
+        // Extrair dados do contexto ENEM
+        $anoEnem = $dadosEnem['ano_enem'] ?? date('Y') + 1;
+        $notaAlvo = $dadosEnem['nota_alvo'] ?? '700+';
+        $areasPrioritarias = $dadosEnem['areas_prioritarias'] ?? [];
+        $nivel = $dadosEnem['nivel'] ?? 'intermediario';
+        $tempoDiario = $dadosEnem['tempo_diario'] ?? 120;
+        $diasDisponiveis = $dadosEnem['dias_disponiveis'] ?? [];
+        $horario = $dadosEnem['horario_disponivel'] ?? '09:00';
+        $dificuldades = $dadosEnem['dificuldades'] ?? '';
+        $disciplinasEnem = trim($dadosEnem['disciplinas_enem'] ?? '');
+        $pesosDisciplinas = trim($dadosEnem['pesos_disciplinas'] ?? '');
+        $dataProva = $dadosEnem['data_prova'] ?? '';
+        $ritmoSimulados = $dadosEnem['ritmo_simulados'] ?? 'nenhum';
+        
+        // Determinar número de dias baseado no nível
+        $diasPorNivel = [
+            'iniciante' => 90, // 3 meses
+            'intermediario' => 120, // 4 meses
+            'avancado' => 60 // 2 meses (revisão)
+        ];
+        $totalDias = $diasPorNivel[$nivel] ?? 120;
+        
+        $areasTexto = !empty($areasPrioritarias) ? implode(', ', $areasPrioritarias) : 'Todas as áreas';
+        
+        $extras = [];
+        if ($disciplinasEnem !== '') { $extras[] = "Disciplinas por área (texto): {$disciplinasEnem}"; }
+        if ($pesosDisciplinas !== '') { $extras[] = "Pesos por disciplina (0-5): {$pesosDisciplinas}"; }
+        if ($dataProva !== '') { $extras[] = "Data prevista da prova: {$dataProva}"; }
+        if ($ritmoSimulados !== 'nenhum') { $extras[] = "Ritmo de simulados: {$ritmoSimulados}"; }
+        $extrasTexto = !empty($extras) ? ("\n\nInformações adicionais:\n- " . implode("\n- ", $extras)) : '';
+        
+        $prompt = "Você é um planejador de estudos especializado em ENEM.\n\nCrie um PLANO DE ESTUDOS semanal em formato JSON estruturado, para um aluno com as seguintes informações:\n\n- Ano do ENEM: {$anoEnem}\n- Nota alvo aproximada: {$notaAlvo}\n- Áreas prioritárias: {$areasTexto}\n- Nível atual: {$nivel} (iniciante, intermediário, avançado)\n- Horas disponíveis por dia: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)\n- Dias da semana disponíveis: " . implode(', ', $diasDisponiveis) . "\n- Horário preferido: {$horario}\n- Dificuldades principais: " . ($dificuldades ?: 'Não especificadas') . "{$extrasTexto}\n\nRegras específicas para ENEM:\n1. Foque na matriz de competências do ENEM\n2. Priorize as áreas indicadas: {$areasTexto}\n3. Inclua estratégias TRI (Teoria de Resposta ao Item)\n4. Divida o estudo por dia, indicando:\n   - Matérias/assuntos específicos do ENEM\n   - Tempo sugerido por atividade\n   - Tipo de atividade (teoria, questões ENEM, revisão, simulado)\n5. Inclua momentos de revisão espaçada (24h, 7 dias, 30 dias)\n6. Foque na lógica do ENEM: interpretação de texto, leitura de gráficos, resolução de questões\n7. Inclua simulados no ritmo definido: {$ritmoSimulados}\n8. Distribua o tempo diário proporcional aos pesos de disciplinas quando fornecidos ({$pesosDisciplinas})\n9. Sugerir temas de redação e lista de exercícios por área quando relevante\n\nÁreas do ENEM:\n- Linguagens, Códigos e suas Tecnologias\n- Ciências Humanas e suas Tecnologias\n- Ciências da Natureza e suas Tecnologias\n- Matemática e suas Tecnologias\n- Redação\n\nCRIE EXATAMENTE {$totalDias} DIAS DE ESTUDO:\n- Distribua as áreas ao longo da semana\n- Priorize as áreas indicadas: {$areasTexto}\n- Inclua revisões regulares\n- Inclua simulados periódicos conforme ritmo\n- Foque em questões estilo ENEM\n\nRetorne um JSON com a seguinte estrutura:\n{\n    'titulo': 'Plano ENEM {$anoEnem} - Nota Alvo {$notaAlvo}',\n    'descricao': 'Plano de {$totalDias} dias para ENEM {$anoEnem}',\n    'dias': [\n        {\n            'dia': 1,\n            'tarefas': [\n                {\n                    'titulo': 'Título específico do tópico ENEM',\n                    'descricao': 'Descrição detalhada do que será estudado',\n                    'material': {\n                        'videos': [],\n                        'textos': ['Material de estudo específico'],\n                        'exercicios': ['Questões ENEM sobre o tópico']\n                    }\n                }\n            ]\n        }\n    ]\n}\n\n⚠️ IMPORTANTE:\n- Retorne APENAS o JSON válido, SEM texto adicional\n- NÃO use markdown code blocks\n- Foque em conteúdo específico do ENEM\n- Use questões e materiais relacionados ao ENEM";
+
+        // Acrescentar regra rígida de campos e estrutura
+        $prompt .= "\n\nRegras de estrutura (OBRIGATÓRIO):\n- Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios.\n- NÃO crie campos extras ou diferentes.\n- O JSON final DEVE seguir exatamente o esquema informado.";
+
+        // Aumentar tokens para garantir resposta completa (8000 tokens para planos grandes)
+        return $this->makeAPICall($prompt, 8000, 0.4);
+    }
+    
+    public function generateConcursoPlan($dadosConcurso) {
+        // Extrair dados do contexto Concurso
+        $tipoConcurso = $dadosConcurso['tipo_concurso'] ?? '';
+        $banca = $dadosConcurso['banca'] ?? '';
+        $nivel = $dadosConcurso['nivel'] ?? 'intermediario';
+        $tempoDiario = $dadosConcurso['tempo_diario'] ?? 120;
+        $diasDisponiveis = $dadosConcurso['dias_disponiveis'] ?? [];
+        $horario = $dadosConcurso['horario_disponivel'] ?? '09:00';
+        $dificuldades = $dadosConcurso['dificuldades'] ?? '';
+        $pesosDisciplinas = trim($dadosConcurso['pesos_disciplinas'] ?? '');
+
+        // Número de dias por nível (coerente com ENEM/geral)
+        $diasPorNivel = [
+            'iniciante' => 90,
+            'intermediario' => 120,
+            'avancado' => 60
+        ];
+        $totalDias = $diasPorNivel[$nivel] ?? 120;
+
+        $prompt = "Você é um planejador de estudos especializado em concursos públicos no Brasil.\n\nCrie um PLANO DE ESTUDOS semanal em formato JSON estruturado, com as informações a seguir:\n\n- Tema/Área: {$tipoConcurso}\n- Banca principal: {$banca}\n- Nível atual: {$nivel}\n- Horas disponíveis por dia: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)\n- Dias da semana disponíveis: " . implode(', ', $diasDisponiveis) . "\n- Horário preferido: {$horario}\n- Dificuldades principais: " . ($dificuldades ?: 'Não especificadas') . "\n\nRegras específicas para Concurso:\n1. Foque no estilo da banca {$banca} (enunciados, pegadinhas, doutrina/jurisprudência quando apropriado).\n2. Ciclo de estudo por tarefa: teoria → questões da banca {$banca} → revisão.\n3. Atribua mais tempo para tópicos tradicionalmente mais cobrados (use pesos se fornecidos: {$pesosDisciplinas}).\n4. Use títulos de tarefas ESPECÍFICOS (nunca 'Aula X' ou 'Dia X').\n\nCRIE EXATAMENTE {$totalDias} DIAS DE ESTUDO:\n- 1 a 3 tarefas por dia, apropriadas ao nível {$nivel}.\n- Inclua momentos de revisão espaçada.\n- Cada tarefa deve conter material (vídeos/textos/exercícios).\n\nRetorne um JSON com a seguinte estrutura EXATA (sem campos extras):\n{\n    'titulo': 'Plano Concurso - {$tipoConcurso}',\n    'descricao': 'Plano de {$totalDias} dias para {$tipoConcurso} (banca {$banca})',\n    'dias': [\n        {\n            'dia': 1,\n            'tarefas': [\n                {\n                    'titulo': 'Título específico do tópico (ex: Princípios do Direito Administrativo)',\n                    'descricao': 'Descrição objetiva do que será estudado',\n                    'material': {\n                        'videos': [],\n                        'textos': ['Livro/Artigo/Manual'],\n                        'exercicios': ['Lista de questões da banca {$banca}']\n                    }\n                }\n            ]\n        }\n    ]\n}\n\nREGRAS DE ESTRUTURA (OBRIGATÓRIO):\n- Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios.\n- NUNCA use campos diferentes.\n- Títulos devem ser sempre preenchidos e específicos.\n- Os dias DEVEM começar em 1 (nunca 0).\n\nFORMATO DE RESPOSTA:\n- Retorne APENAS o JSON válido, SEM texto adicional.\n- NÃO use markdown code blocks.";
+
+        return $this->makeAPICall($prompt, 8000, 0.4);
+    }
+    
     public function generateSummaryPDF($topico, $nivel, $descricao) {
         $prompt = "Crie um resumo auxiliar DETALHADO sobre: {$topico}
         
@@ -216,33 +281,30 @@ class OpenAIService {
         Use Markdown: # títulos, ## seções, ### subtópicos, **negrito**, *itálico*, - listas, 1. numeradas.
         Seja específico e detalhado sobre {$topico} no nível {$nivel}.";
         
-        // Reduzir tokens para acelerar (5000 tokens)
-        return $this->makeAPICall($prompt, 5000);
+        // Resumo deve vir em Markdown, não JSON
+        return $this->makeAPICall($prompt, 5000, 0.7, 'markdown');
     }
     
-    private function makeAPICall($prompt, $maxTokens = 2000) {
-        // Adicionar instrução de sistema para garantir formato JSON
-        $systemMessage = "Você é um assistente que retorna APENAS JSON válido. NUNCA adicione texto antes ou depois do JSON. NUNCA use markdown code blocks. Retorne APENAS o objeto JSON puro.";
+    private function makeAPICall($prompt, $maxTokens = 2000, $temperature = 0.7, $mode = 'json') {
+        // Mensagem de sistema de acordo com o modo desejado
+        if ($mode === 'markdown') {
+            $systemMessage = "Você é um assistente que retorna APENAS conteúdo em Markdown bem formatado (sem JSON). NÃO use blocos ```json, apenas Markdown puro com títulos, listas, etc.";
+        } else {
+            $systemMessage = "Você é um assistente que retorna APENAS JSON válido. NUNCA adicione texto antes ou depois do JSON. NUNCA use markdown code blocks. Retorne APENAS o objeto JSON puro.";
+        }
         
         $data = [
-            'model' => 'gpt-4o-mini', // Modelo mais rápido e barato
+            'model' => 'gpt-4o-mini',
             'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $systemMessage
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
+                [ 'role' => 'system', 'content' => $systemMessage ],
+                [ 'role' => 'user', 'content' => $prompt ]
             ],
             'max_tokens' => $maxTokens,
-            'temperature' => 0.7,
-            'stream' => false // Garantir que não use streaming
+            'temperature' => $temperature,
+            'stream' => false
         ];
         
-        // Tentar adicionar response_format apenas se o modelo suportar (gpt-4o-mini pode não suportar)
-        // Comentado por enquanto para evitar erros
+        // response_format só faria sentido para JSON; manter desligado para segurança
         // $data['response_format'] = ['type' => 'json_object'];
         
         $headers = [

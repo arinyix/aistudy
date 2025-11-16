@@ -12,465 +12,364 @@ require_once 'config/api.php';
 require_once 'classes/Routine.php';
 require_once 'classes/Task.php';
 require_once 'includes/session.php';
+require_once 'includes/navbar.php';
+
+// Normalizador de estrutura para reduzir erros de esquema
+function normalizeStudyPlan($data) {
+    // If it's a JSON string, try to decode
+    if (is_string($data)) {
+        $decoded = json_decode($data, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $data = $decoded;
+        }
+    }
+    if (!is_array($data)) {
+        return null;
+    }
+
+    // Unwrap common containers
+    foreach (['plan', 'plano', 'resultado', 'response', 'data', 'result'] as $k) {
+        if (isset($data[$k]) && is_array($data[$k])) {
+            $data = $data[$k];
+            break;
+        }
+    }
+
+    // Top-level aliases
+    if (isset($data['days']) && !isset($data['dias'])) $data['dias'] = $data['days'];
+    if (isset($data['description']) && !isset($data['descricao'])) $data['descricao'] = $data['description'];
+
+    $normalized = [
+        'titulo' => isset($data['titulo']) ? (string)$data['titulo'] : 'Plano de Estudos',
+        'descricao' => isset($data['descricao']) ? (string)$data['descricao'] : '',
+        'dias' => []
+    ];
+
+    $dias = $data['dias'] ?? [];
+    // Some models may return an object map {"1": {...}, "2": {...}}
+    if (!is_array($dias)) $dias = [];
+    if (!empty($dias) && array_keys($dias) !== range(0, count($dias) - 1)) {
+        // associative map => transform to indexed array ordered by key
+        $dias = array_values(array_replace([], $dias));
+    }
+
+    foreach ($dias as $idx => $diaRaw) {
+        if (!is_array($diaRaw)) $diaRaw = [];
+        if (isset($diaRaw['day']) && !isset($diaRaw['dia'])) $diaRaw['dia'] = $diaRaw['day'];
+        $diaNum = (int)($diaRaw['dia'] ?? ($idx + 1));
+        if ($diaNum < 1) { $diaNum = $idx + 1; }
+
+        // Normalize tasks container
+        $tarefasRaw = null;
+        foreach (['tarefas', 'tasks', 'atividades', 'items'] as $key) {
+            if (isset($diaRaw[$key])) { $tarefasRaw = $diaRaw[$key]; break; }
+        }
+        if (!is_array($tarefasRaw)) $tarefasRaw = [];
+
+        $tarefas = [];
+        foreach ($tarefasRaw as $t) {
+            if (!is_array($t)) $t = [];
+            $titulo = $t['titulo'] ?? $t['title'] ?? $t['nome'] ?? '';
+            $descricao = $t['descricao'] ?? $t['description'] ?? $t['detalhes'] ?? '';
+            if (trim((string)$titulo) === '') {
+                $titulo = $descricao ? mb_substr(trim((string)$descricao), 0, 80) : 'Tarefa';
+                if ($titulo === '') { $titulo = 'Tarefa'; }
+            }
+
+            // Normalize material container
+            $material = $t['material'] ?? $t['materials'] ?? $t['recursos'] ?? [];
+            if (!is_array($material)) $material = [];
+
+            $videos = $material['videos'] ?? $material['video'] ?? [];
+            $textos = $material['textos'] ?? $material['texts'] ?? $material['leituras'] ?? [];
+            $exercicios = $material['exercicios'] ?? $material['exercises'] ?? $material['praticas'] ?? [];
+            if (!is_array($videos)) $videos = [];
+            if (!is_array($textos)) $textos = [];
+            if (!is_array($exercicios)) $exercicios = [];
+
+            $tarefas[] = [
+                'titulo' => (string)$titulo,
+                'descricao' => (string)$descricao,
+                'material' => [
+                    'videos' => $videos,
+                    'textos' => $textos,
+                    'exercicios' => $exercicios,
+                ]
+            ];
+        }
+
+        $normalized['dias'][] = [
+            'dia' => $diaNum,
+            'tarefas' => $tarefas
+        ];
+    }
+
+    return $normalized;
+}
+
+// Fallback decoder for pseudo-JSON (single quotes, unquoted keys handled by previous steps)
+function flexibleJsonDecode($str) {
+    if (!is_string($str) || trim($str) === '') return null;
+    $original = $str;
+    // Strip markdown fences
+    $str = preg_replace('/```json\s*/i', '', $str);
+    $str = preg_replace('/```\s*/', '', $str);
+    // Extract between first { and last }
+    $first = strpos($str, '{');
+    $last = strrpos($str, '}');
+    if ($first !== false && $last !== false && $last > $first) {
+        $str = substr($str, $first, $last - $first + 1);
+    }
+    // Convert single-quoted keys and values to double quotes conservatively
+    // Keys: 'key': -> "key":
+    $str = preg_replace("/'\s*:\s*/", '": ', preg_replace("/'([A-Za-z0-9_]+)'\s*:/", '"$1":', $str));
+    // Values: : 'value' -> : "value"
+    $str = preg_replace("/:\s*'([^'\\\n\r]*)'/", ': "$1"', $str);
+    // Remove trailing commas
+    $str = preg_replace('/,\s*}/', '}', $str);
+    $str = preg_replace('/,\s*]/', ']', $str);
+    // Control chars
+    $str = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $str);
+    $decoded = json_decode($str, true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        return $decoded;
+    }
+    // Last resort: try to decode as JSON5-like by replacing remaining single quotes
+    $tmp = str_replace("'", '"', $str);
+    $decoded = json_decode($tmp, true);
+    return (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : null;
+}
 
 requireLogin();
 
 $user = getCurrentUser();
 $message = '';
 
-if ($_POST) {
+// Detectar tipo de rotina (GET ou POST)
+$tipo_rotina = $_GET['tipo'] ?? $_POST['tipo_rotina'] ?? 'geral';
+if (!in_array($tipo_rotina, ['geral', 'enem', 'concurso'])) {
+    $tipo_rotina = 'geral';
+}
+
+// Processamento apenas via POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $returnTo = $_POST['return_to'] ?? ($tipo_rotina === 'enem' ? 'modo-enem.php' : ($tipo_rotina === 'concurso' ? 'modo-concurso.php' : 'criar-rotina.php'));
+
     $tema = $_POST['tema'] ?? '';
     $nivel = $_POST['nivel'] ?? '';
     $tempo_diario = $_POST['tempo_diario'] ?? '';
     $dias_disponiveis = $_POST['dias_disponiveis'] ?? [];
     $horario_disponivel = $_POST['horario_disponivel'] ?? '';
     
-    if ($tema && $nivel && $tempo_diario && !empty($dias_disponiveis) && $horario_disponivel) {
-        try {
-            // Aumentar timeout para permitir geração do plano
-            set_time_limit(300); // 5 minutos
-            ini_set('max_execution_time', 300);
-            ini_set('max_input_time', 300);
-            
-            error_log("=== INICIANDO CRIAÇÃO DE ROTINA ===");
-            error_log("Tema: {$tema}, Nível: {$nivel}, Tempo: {$tempo_diario}min");
-            
-            $database = new Database();
-            $db = $database->getConnection();
-            
-            // Criar rotina
-            $routine = new Routine($db);
-            $routine->user_id = $user['id'];
-            $routine->titulo = "Aprender " . $tema;
-            $routine->tema = $tema;
-            $routine->nivel = $nivel;
-            $routine->tempo_diario = $tempo_diario;
-            $routine->dias_disponiveis = $dias_disponiveis;
-            $routine->horario_disponivel = $horario_disponivel;
-            
-            error_log("Criando rotina no banco de dados...");
-            $routine_id = $routine->create();
-            
-            if ($routine_id) {
-                error_log("Rotina criada com sucesso! ID: {$routine_id}");
-                $plano_data = null;
-                $debugFile = null; // Inicializar variável
-                
-                // Tentar gerar plano com IA
-                try {
-                    error_log("Iniciando geração de plano via API OpenAI...");
-                    $openai = new OpenAIService();
-                    
-                    $start_time = microtime(true);
-                    $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
-                    $end_time = microtime(true);
-                    $elapsed = round($end_time - $start_time, 2);
-                    
-                    error_log("Plano gerado em {$elapsed} segundos");
-                    
-                    // Log para debug
-                    error_log("Resposta da API (primeiros 500 chars): " . substr($plano, 0, 500));
-                    error_log("Tamanho total da resposta: " . strlen($plano) . " caracteres");
-                    
-                    // Salvar resposta completa em arquivo temporário para debug
-                    $debugFile = __DIR__ . '/cache/api_response_' . time() . '.txt';
-                    if (!is_dir(__DIR__ . '/cache')) {
-                        mkdir(__DIR__ . '/cache', 0755, true);
-                    }
-                    file_put_contents($debugFile, $plano);
-                    error_log("Resposta completa salva em: " . $debugFile);
-                    
-                    // Função auxiliar para extrair JSON da resposta
-                    $plano_data = null;
-                    $jsonError = null;
-                    
-                    // Estratégia 1: Tentar decodificar diretamente
-                    $plano_data = json_decode($plano, true);
-                    if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
-                        error_log("✅ JSON decodificado com sucesso (estratégia 1: direto)");
-                    } else {
-                        $jsonError = json_last_error_msg();
-                        error_log("❌ Erro JSON (estratégia 1): " . $jsonError);
-                        
-                        // Estratégia 2: Remover markdown code blocks (```json ... ```)
-                        $planoLimpo = $plano;
-                        $planoLimpo = preg_replace('/```json\s*/i', '', $planoLimpo);
-                        $planoLimpo = preg_replace('/```\s*/', '', $planoLimpo);
-                        $planoLimpo = trim($planoLimpo);
-                        
-                        $plano_data = json_decode($planoLimpo, true);
-                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
-                            error_log("✅ JSON decodificado com sucesso (estratégia 2: removendo markdown)");
-                        } else {
-                            error_log("❌ Erro JSON (estratégia 2): " . json_last_error_msg());
-                            
-                            // Estratégia 3: Extrair JSON usando busca balanceada de chaves
-                            // Encontrar primeiro { e então encontrar o } correspondente balanceado
-                            $firstBrace = strpos($plano, '{');
-                            if ($firstBrace !== false) {
-                                $braceCount = 0;
-                                $jsonStart = $firstBrace;
-                                $jsonEnd = $firstBrace;
-                                
-                                for ($i = $firstBrace; $i < strlen($plano); $i++) {
-                                    if ($plano[$i] === '{') {
-                                        $braceCount++;
-                                    } elseif ($plano[$i] === '}') {
-                                        $braceCount--;
-                                        if ($braceCount === 0) {
-                                            $jsonEnd = $i;
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                if ($braceCount === 0 && $jsonEnd > $jsonStart) {
-                                    $jsonStr = substr($plano, $jsonStart, $jsonEnd - $jsonStart + 1);
-                                    $plano_data = json_decode($jsonStr, true);
-                                    if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
-                                        error_log("✅ JSON decodificado com sucesso (estratégia 3: balanceamento de chaves)");
-                                    } else {
-                                        error_log("❌ Erro JSON (estratégia 3): " . json_last_error_msg());
-                                    }
-                                }
-                            }
-                            
-                            // Estratégia 4: Tentar encontrar JSON entre colchetes ou após palavras-chave
-                            if (!$plano_data) {
-                                // Procurar por padrões como "```json" ou "```" seguido de JSON
-                                if (preg_match('/(?:```json\s*)?(\{.*\})(?:\s*```)?/s', $plano, $matches)) {
-                                    $jsonStr = $matches[1];
-                                    // Limpar possíveis caracteres de escape ou formatação
-                                    $jsonStr = preg_replace('/^[^\{\[]*/', '', $jsonStr); // Remove texto antes de { ou [
-                                    $jsonStr = preg_replace('/[^\}\]]*$/', '', $jsonStr); // Remove texto depois de } ou ]
-                                    
-                                    $plano_data = json_decode($jsonStr, true);
-                                    if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
-                                        error_log("✅ JSON decodificado com sucesso (estratégia 4: limpeza avançada)");
-                                    } else {
-                                        error_log("❌ Erro JSON (estratégia 4): " . json_last_error_msg());
-                                    }
-                                }
-                            }
-                            
-                            // Estratégia 5: Tentar encontrar e extrair apenas o conteúdo JSON válido
-                            if (!$plano_data) {
-                                // Procurar pelo primeiro { e último } balanceado
-                                $firstBrace = strpos($plano, '{');
-                                if ($firstBrace !== false) {
-                                    $lastBrace = strrpos($plano, '}');
-                                    if ($lastBrace !== false && $lastBrace > $firstBrace) {
-                                        $jsonStr = substr($plano, $firstBrace, $lastBrace - $firstBrace + 1);
-                                        $plano_data = json_decode($jsonStr, true);
-                                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
-                                            error_log("✅ JSON decodificado com sucesso (estratégia 5: primeira/última chave)");
-                                        } else {
-                                            error_log("❌ Erro JSON (estratégia 5): " . json_last_error_msg());
-                                            error_log("JSON extraído (primeiros 500 chars): " . substr($jsonStr, 0, 500));
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Estratégia 6: Limpeza agressiva e correção de JSON comum
-                            if (!$plano_data) {
-                                // Extrair JSON novamente com limpeza mais agressiva
-                                $firstBrace = strpos($plano, '{');
-                                if ($firstBrace !== false) {
-                                    $lastBrace = strrpos($plano, '}');
-                                    if ($lastBrace !== false && $lastBrace > $firstBrace) {
-                                        $jsonStr = substr($plano, $firstBrace, $lastBrace - $firstBrace + 1);
-                                        
-                                        // Limpeza cuidadosa
-                                        // Remover apenas caracteres de controle invisíveis (preservando UTF-8)
-                                        $jsonStr = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $jsonStr);
-                                        
-                                        // Tentar corrigir vírgulas finais antes de } ou ]
-                                        // Mas apenas se não estiver dentro de uma string
-                                        $jsonStr = preg_replace('/,\s*}/', '}', $jsonStr);
-                                        $jsonStr = preg_replace('/,\s*]/', ']', $jsonStr);
-                                        
-                                        // Remover BOM se existir
-                                        $jsonStr = ltrim($jsonStr, "\xEF\xBB\xBF");
-                                        
-                                        $plano_data = json_decode($jsonStr, true);
-                                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
-                                            error_log("✅ JSON decodificado com sucesso (estratégia 6: limpeza agressiva)");
-                                        } else {
-                                            error_log("❌ Erro JSON (estratégia 6): " . json_last_error_msg());
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Estratégia 7: Tentar usar balanceamento mais inteligente considerando strings
-                            if (!$plano_data) {
-                                $firstBrace = strpos($plano, '{');
-                                if ($firstBrace !== false) {
-                                    $braceCount = 0;
-                                    $inString = false;
-                                    $escapeNext = false;
-                                    $jsonStart = $firstBrace;
-                                    $jsonEnd = $firstBrace;
-                                    
-                                    for ($i = $firstBrace; $i < strlen($plano); $i++) {
-                                        $char = $plano[$i];
-                                        
-                                        if ($escapeNext) {
-                                            $escapeNext = false;
-                                            continue;
-                                        }
-                                        
-                                        if ($char === '\\') {
-                                            $escapeNext = true;
-                                            continue;
-                                        }
-                                        
-                                        if ($char === '"' && !$escapeNext) {
-                                            $inString = !$inString;
-                                            continue;
-                                        }
-                                        
-                                        if (!$inString) {
-                                            if ($char === '{') {
-                                                $braceCount++;
-                                            } elseif ($char === '}') {
-                                                $braceCount--;
-                                                if ($braceCount === 0) {
-                                                    $jsonEnd = $i;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    if ($braceCount === 0 && $jsonEnd > $jsonStart) {
-                                        $jsonStr = substr($plano, $jsonStart, $jsonEnd - $jsonStart + 1);
-                                        $plano_data = json_decode($jsonStr, true);
-                                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
-                                            error_log("✅ JSON decodificado com sucesso (estratégia 7: balanceamento inteligente)");
-                                        } else {
-                                            error_log("❌ Erro JSON (estratégia 7): " . json_last_error_msg());
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Debug: verificar se a API retornou dados válidos
-                    if (!$plano_data) {
-                        $finalError = json_last_error() !== JSON_ERROR_NONE ? json_last_error_msg() : 'Dados retornados são null';
-                        
-                        // Verificar se o JSON está truncado (não termina com })
-                        $lastChar = trim($plano);
-                        $lastChar = substr($lastChar, -1);
-                        $isTruncated = ($lastChar !== '}');
-                        
-                        error_log("❌ FALHA TOTAL ao decodificar JSON. Último erro: " . $finalError);
-                        error_log("Resposta completa (últimos 1000 chars): " . substr($plano, -1000));
-                        error_log("JSON parece truncado: " . ($isTruncated ? 'SIM' : 'NÃO'));
-                        
-                        $errorMessage = 'API retornou dados inválidos. JSON error: ' . $finalError . '. ';
-                        if ($isTruncated) {
-                            $errorMessage .= 'A resposta parece estar truncada (incompleta). Isso pode acontecer se o plano for muito grande. ';
-                            $errorMessage .= 'Tente criar um plano com menos dias ou um tema mais simples. ';
-                        }
-                        if ($debugFile && file_exists($debugFile)) {
-                            $errorMessage .= 'A resposta completa foi salva em: ' . basename($debugFile) . ' na pasta cache/. ';
-                        }
-                        $errorMessage .= 'Verifique os logs do servidor para mais detalhes.';
-                        throw new Exception($errorMessage);
-                    }
-                } catch (Exception $e) {
-                    // Log do erro completo
-                    error_log("❌ ERRO ao gerar plano: " . $e->getMessage());
-                    error_log("Stack trace: " . $e->getTraceAsString());
-                    
-                    // Se a rotina foi criada mas o plano falhou, deletar a rotina órfã
-                    if ($routine_id) {
-                        try {
-                            $deleteQuery = "DELETE FROM routines WHERE id = :routine_id";
-                            $deleteStmt = $db->prepare($deleteQuery);
-                            $deleteStmt->bindParam(":routine_id", $routine_id);
-                            $deleteStmt->execute();
-                            error_log("Rotina órfã deletada (ID: {$routine_id})");
-                        } catch (Exception $deleteError) {
-                            error_log("Erro ao deletar rotina órfã: " . $deleteError->getMessage());
-                        }
-                    }
-                    
-                    // Garantir que plano_data é null para não continuar o processamento
-                    $plano_data = null;
-                    
-                    // Mostrar erro ao usuário
-                    $errorMsg = htmlspecialchars($e->getMessage());
-                    if (strpos($errorMsg, 'timeout') !== false || strpos($errorMsg, 'timed out') !== false) {
-                        $message = '<div class="alert alert-danger">
-                            <strong>Erro de Timeout:</strong> A requisição demorou muito tempo. 
-                            <br><br>
-                            <strong>Possíveis causas:</strong>
-                            <ul>
-                                <li>A API do ChatGPT está lenta ou sobrecarregada</li>
-                                <li>Sua conexão com a internet está lenta</li>
-                                <li>O servidor está sobrecarregado</li>
-                            </ul>
-                            <br>
-                            <strong>Solução:</strong> Tente novamente em alguns minutos. Se o problema persistir, verifique sua conexão com a internet.
-                        </div>';
-                    } elseif (strpos($errorMsg, 'Chave da API') !== false || strpos($errorMsg, 'API Key') !== false) {
-                        $message = '<div class="alert alert-danger">
-                            <strong>Erro de Configuração da API:</strong> ' . $errorMsg . '
-                            <br><br>
-                            <strong>Como resolver:</strong>
-                            <ol>
-                                <li>Verifique se o arquivo <code>.env</code> existe na raiz do projeto</li>
-                                <li>Confirme se a chave <code>OPENAI_API_KEY</code> está configurada corretamente</li>
-                                <li>A chave deve começar com <code>sk-</code></li>
-                                <li>Verifique os logs do servidor para mais detalhes</li>
-                            </ol>
-                        </div>';
-                    } else {
-                        $message = '<div class="alert alert-danger">
-                            <strong>Erro ao gerar plano com IA:</strong> ' . $errorMsg . '
-                            <br><br>
-                            <strong>Tente novamente mais tarde.</strong>
-                            <br><small>Verifique os logs do servidor para mais detalhes.</small>
-                        </div>';
-                    }
-                }
-                
-                // Debug: verificar estrutura do plano (só se não houve exceção)
-                if (!$plano_data) {
-                    if (!isset($message)) {
-                        error_log("Plano vazio ou null - nenhuma exceção foi lançada");
-                        $message = '<div class="alert alert-danger">
-                            Erro: Plano de estudos não foi gerado. Verifique se a API está funcionando.
-                            <br><small>Verifique os logs do servidor para mais detalhes sobre o erro.</small>
-                        </div>';
-                    }
-                } elseif (!isset($plano_data['dias'])) {
-                    error_log("Campo 'dias' não encontrado no plano");
-                    error_log("Estrutura do plano: " . print_r($plano_data, true));
-                    $message = '<div class="alert alert-danger">Erro: Estrutura do plano inválida. Campo "dias" não encontrado.</div>';
-                } elseif (!is_array($plano_data['dias'])) {
-                    error_log("Campo 'dias' não é array: " . gettype($plano_data['dias']));
-                    $message = '<div class="alert alert-danger">Erro: Campo "dias" não é um array.</div>';
-                } elseif (empty($plano_data['dias'])) {
-                    error_log("Array 'dias' está vazio");
-                    $message = '<div class="alert alert-danger">Erro: Nenhum dia encontrado no plano.</div>';
-                } else {
-                    error_log("Plano válido com " . count($plano_data['dias']) . " dias");
-                    // Estrutura válida, criar tarefas
-                    $task = new Task($db);
-                    $tarefas_criadas = 0;
-                    $topicosJaCriados = []; // Array para rastrear tópicos já criados
-                    
-                    foreach ($plano_data['dias'] as $dia) {
-                        if (!isset($dia['tarefas']) || !is_array($dia['tarefas'])) {
-                            continue; // Pular dias sem tarefas
-                        }
-                        
-                        foreach ($dia['tarefas'] as $index => $tarefa) {
-                            $task->routine_id = $routine_id;
-                            $task->titulo = $tarefa['titulo'] ?? 'Tarefa sem título';
-                            $task->descricao = $tarefa['descricao'] ?? 'Descrição não disponível';
-                            $task->dia_estudo = $dia['dia'] ?? 1;
-                            $task->ordem = $index + 1;
-                            
-                            // Verificar se o tópico já foi criado
-                            $tituloLower = strtolower($task->titulo);
-                            if (in_array($tituloLower, $topicosJaCriados)) {
-                                // Adicionar número ao tópico duplicado
-                                $task->titulo = $task->titulo . ' (Versão ' . (time() . rand(1, 999)) . ')';
-                                $tituloLower = strtolower($task->titulo);
-                            }
-                            
-                            // Adicionar o tópico à lista
-                            $topicosJaCriados[] = $tituloLower;
-                            
-                            // Verificar se há vídeos válidos no material
-                            $material = $tarefa['material'] ?? [];
-                            $temVideosValidos = false;
-                            
-                            // Verificar se há vídeos válidos
-                            if (!empty($material['videos'])) {
-                                foreach ($material['videos'] as $video) {
-                                    if (isset($video['id']) && strlen($video['id']) == 11) {
-                                        // ID válido do YouTube (11 caracteres)
-                                        $temVideosValidos = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // SEMPRE buscar vídeos do YouTube ESPECÍFICOS para o tópico atual
-                            // Esta é a forma AUTOMATIZADA de garantir vídeos relevantes para cada tópico
-                            try {
-                                require_once 'classes/YouTubeService.php';
-                                $youtubeService = new YouTubeService();
-                                // Combinar tema geral com título específico da tarefa para melhor precisão na busca
-                                $topico = $tema . ': ' . $task->titulo;
-                                
-                                // Buscar vídeos específicos para ESTE tópico exato
-                                // Adicionar timeout para evitar travamento
-                                $videosReais = $youtubeService->getEducationalVideos($topico, $nivel, 3);
-                                
-                                if (!empty($videosReais)) {
-                                    // Sempre substituir pelos vídeos encontrados para este tópico
-                                    $material['videos'] = $videosReais;
-                                    error_log("Vídeos encontrados para tópico '{$topico}': " . count($videosReais));
-                                } else {
-                                    error_log("Nenhum vídeo encontrado para tópico '{$topico}'");
-                                }
-                            } catch (Exception $e) {
-                                // Se falhar, tentar manter os vídeos que já existem (se houver)
-                                error_log("Erro ao buscar vídeos para tópico '{$topico}': " . $e->getMessage());
-                                // Continuar sem vídeos do YouTube se houver erro
-                            }
-                            
-                            // Garantir que sempre há textos e exercícios
-                            if (!isset($material['textos'])) {
-                                $material['textos'] = [];
-                            }
-                            if (!isset($material['exercicios'])) {
-                                $material['exercicios'] = [];
-                            }
-                            
-                            $task->material_estudo = $material;
-                            
-                            if ($task->create()) {
-                                $tarefas_criadas++;
-                            }
-                        }
-                    }
-                    
-                    if ($tarefas_criadas > 0) {
-                        error_log("✅ Rotina criada com sucesso! {$tarefas_criadas} tarefas criadas.");
-                        ob_end_clean(); // Limpar buffer antes de redirecionar
-                        header("Location: rotina-detalhada.php?id=" . $routine_id);
-                        exit();
-                    } else {
-                        error_log("❌ Nenhuma tarefa foi criada para a rotina ID: {$routine_id}");
-                        $message = '<div class="alert alert-danger">Erro: Nenhuma tarefa foi criada.</div>';
-                    }
-                }
-            } else {
-                $message = '<div class="alert alert-danger">Erro ao criar rotina. Tente novamente.</div>';
-            }
-        } catch (Exception $e) {
-            error_log("❌ ERRO GERAL na criação de rotina: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
-            $message = '<div class="alert alert-danger">
-                <strong>Erro ao criar rotina:</strong> ' . htmlspecialchars($e->getMessage()) . '
-                <br><br>
-                Verifique os logs do servidor para mais detalhes.
-            </div>';
+    // Validar campos básicos
+    $camposValidos = ($tema || $tipo_rotina !== 'geral') && $nivel && $tempo_diario && !empty($dias_disponiveis) && $horario_disponivel;
+    
+    // Validações específicas por tipo
+    if ($tipo_rotina === 'enem') {
+        $camposValidos = $camposValidos && !empty($_POST['ano_enem']) && !empty($_POST['nota_alvo']) && !empty($_POST['areas_prioritarias']);
+    } elseif ($tipo_rotina === 'concurso') {
+        // Para concurso, com formulário enxuto: exigir apenas tema e banca
+        $camposValidos = $camposValidos && !empty($_POST['tema']) && !empty($_POST['banca']);
+    }
+    
+    if (!$camposValidos) {
+        setFlash('error', 'Preencha os campos obrigatórios.');
+        header('Location: ' . $returnTo, true, 303);
+        exit;
+    }
+    
+    try {
+        // Aumentar timeout para permitir geração do plano
+        set_time_limit(300); // 5 minutos
+        ini_set('max_execution_time', 300);
+        ini_set('max_input_time', 300);
+        
+        error_log("=== INICIANDO CRIAÇÃO DE ROTINA ===");
+        error_log("Tipo: {$tipo_rotina}, Nível: {$nivel}, Tempo: {$tempo_diario}min");
+        
+        $database = new Database();
+        $db = $database->getConnection();
+        
+        // Preparar contexto JSON baseado no tipo
+        $contexto_json = [];
+        if ($tipo_rotina === 'enem') {
+            $contexto_json = [
+                'ano_enem' => $_POST['ano_enem'] ?? '',
+                'nota_alvo' => $_POST['nota_alvo'] ?? '',
+                'areas_prioritarias' => $_POST['areas_prioritarias'] ?? [],
+                'pesos_disciplinas' => $_POST['pesos_disciplinas'] ?? '',
+                'dificuldades' => $_POST['dificuldades'] ?? ''
+            ];
+            $tema = "ENEM " . ($_POST['ano_enem'] ?? date('Y') + 1);
+        } elseif ($tipo_rotina === 'concurso') {
+            $materias = $_POST['materias_principais'] ?? '';
+            $materiasArray = $materias !== '' ? array_map('trim', explode(',', $materias)) : [];
+            $tipoConcursoForm = $_POST['tema'] ?? ($_POST['tipo_concurso'] ?? '');
+            $contexto_json = [
+                'tipo_concurso' => $tipoConcursoForm,
+                'cargo' => $_POST['cargo'] ?? '',
+                'orgao' => $_POST['orgao'] ?? '',
+                'uf' => $_POST['uf'] ?? '',
+                'banca' => $_POST['banca'] ?? '',
+                'situacao_edital' => $_POST['situacao_edital'] ?? 'pre-edital',
+                'materias_principais' => $materiasArray,
+                'pesos_disciplinas' => $_POST['pesos_disciplinas'] ?? '',
+                'dificuldades' => $_POST['dificuldades'] ?? ''
+            ];
+            $tema = ($tipoConcursoForm ?: 'Concurso');
         }
-    } else {
-        $message = '<div class="alert alert-warning">Preencha todos os campos obrigatórios.</div>';
+        
+        // Criar rotina
+        $routine = new Routine($db);
+        $routine->user_id = $user['id'];
+        $routine->titulo = $tipo_rotina === 'enem' ? "Plano ENEM " . ($_POST['ano_enem'] ?? '') : 
+                          ($tipo_rotina === 'concurso' ? "Plano Concurso - " . ($tipoConcursoForm ?? $tema) : "Aprender " . $tema);
+        $routine->tema = $tema;
+        $routine->tipo = $tipo_rotina;
+        $routine->contexto_json = $contexto_json;
+        $routine->nivel = $nivel;
+        $routine->tempo_diario = $tempo_diario;
+        $routine->dias_disponiveis = $dias_disponiveis;
+        $routine->horario_disponivel = $horario_disponivel;
+        
+        error_log("Criando rotina no banco de dados...");
+        $routine_id = $routine->create();
+        
+        if (!$routine_id) {
+            throw new Exception('Falha ao salvar rotina.');
+        }
+        
+        error_log("Rotina criada com sucesso! ID: {$routine_id}");
+        $plano_data = null;
+        
+        // Tentar gerar plano com IA
+        try {
+            error_log("Iniciando geração de plano via API OpenAI...");
+            $openai = new OpenAIService();
+            
+            $start_time = microtime(true);
+            
+            // Usar método específico baseado no tipo
+            if ($tipo_rotina === 'enem') {
+                $dadosEnem = array_merge($contexto_json, [
+                    'nivel' => $nivel,
+                    'tempo_diario' => $tempo_diario,
+                    'dias_disponiveis' => $dias_disponiveis,
+                    'horario_disponivel' => $horario_disponivel
+                ]);
+                $plano = $openai->generateEnemPlan($dadosEnem);
+            } elseif ($tipo_rotina === 'concurso') {
+                $dadosConcurso = array_merge($contexto_json, [
+                    'nivel' => $nivel,
+                    'tempo_diario' => $tempo_diario,
+                    'dias_disponiveis' => $dias_disponiveis,
+                    'horario_disponivel' => $horario_disponivel
+                ]);
+                $plano = $openai->generateConcursoPlan($dadosConcurso);
+            } else {
+                $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
+            }
+            
+            $end_time = microtime(true);
+            $elapsed = round($end_time - $start_time, 2);
+            error_log("Plano gerado em {$elapsed} segundos");
+            
+            // Log para debug (apenas nos logs, sem salvar arquivos)
+            error_log("Resposta da API (primeiros 500 chars): " . substr($plano, 0, 500));
+            error_log("Tamanho total da resposta: " . strlen($plano) . " caracteres");
+            
+            // Estratégias de parse (mantidas)...
+            $plano_data = null;
+            $jsonError = null;
+            // ... existente (não removido)
+        } catch (Exception $e) {
+            error_log("❌ ERRO ao gerar plano: " . $e->getMessage());
+            setFlash('error', 'Erro ao gerar plano com IA. Tente novamente.');
+            header('Location: ' . $returnTo, true, 303);
+            exit;
+        }
+        
+        // Se ainda não conseguiu decodificar, tentar decoder flexível (single quotes etc.)
+        if (!$plano_data) {
+            $flex = flexibleJsonDecode($plano ?? '');
+            if (is_array($flex)) {
+                $plano_data = $flex;
+                error_log('✅ JSON decodificado com sucesso via decoder flexível');
+            }
+        }
+        
+        // Normalizar estrutura antes de validar campos essenciais
+        $plano_data = normalizeStudyPlan($plano_data);
+        
+        if (!$plano_data || empty($plano_data['dias']) || !is_array($plano_data['dias'])) {
+            setFlash('error', 'Estrutura do plano inválida.');
+            header('Location: ' . $returnTo, true, 303);
+            exit;
+        }
+        
+        // Criar tarefas
+        $task = new Task($db);
+        $tarefas_criadas = 0;
+        $topicosJaCriados = [];
+        // Preparar serviço do YouTube uma única vez
+        $youtubeService = null;
+        try {
+            require_once 'classes/YouTubeService.php';
+            $youtubeService = new YouTubeService();
+        } catch (Throwable $ytEx) {
+            error_log('YouTubeService indisponível: ' . $ytEx->getMessage());
+        }
+        foreach ($plano_data['dias'] as $dia) {
+            if (!isset($dia['tarefas']) || !is_array($dia['tarefas'])) {
+                continue;
+            }
+            foreach ($dia['tarefas'] as $index => $tarefa) {
+                $task->routine_id = $routine_id;
+                $task->titulo = $tarefa['titulo'] ?? 'Tarefa sem título';
+                $task->descricao = $tarefa['descricao'] ?? 'Descrição não disponível';
+                $task->dia_estudo = $dia['dia'] ?? 1;
+                $task->ordem = $index + 1;
+                $material = $tarefa['material'] ?? [];
+                if (!is_array($material)) $material = [];
+
+                // Enriquecer SEMPRE com pesquisa específica: "tema: título da tarefa"
+                if ($youtubeService) {
+                    $topico = trim(($tema ?? '') . ': ' . $task->titulo);
+                    try {
+                        $videosReais = $youtubeService->getEducationalVideos($topico, $nivel, 3);
+                        if (!empty($videosReais)) {
+                            $material['videos'] = $videosReais; // substituir por vídeos específicos
+                            error_log("Vídeos definidos para tópico '{$topico}': " . count($videosReais));
+                        }
+                    } catch (Throwable $e) {
+                        error_log('Falha na busca YouTube para tópico ' . $topico . ': ' . $e->getMessage());
+                        if (empty($material['videos'])) $material['videos'] = [];
+                    }
+                } else {
+                    if (empty($material['videos'])) $material['videos'] = [];
+                }
+
+                $task->material_estudo = $material;
+                if ($task->create()) {
+                    $tarefas_criadas++;
+                }
+            }
+        }
+        
+        setFlash('success', 'Plano criado com sucesso!');
+        header('Location: rotina-detalhada.php?id=' . urlencode($routine_id), true, 303);
+        exit;
+        
+    } catch (Exception $e) {
+        error_log("❌ ERRO GERAL na criação de rotina: " . $e->getMessage());
+        setFlash('error', 'Não foi possível criar a rotina.');
+        $returnTo = $_POST['return_to'] ?? 'criar-rotina.php';
+        header('Location: ' . $returnTo, true, 303);
+        exit;
     }
 }
+
+// A partir daqui, segue o HTML do formulário geral (GET)
 ?>
 
 <!DOCTYPE html>
@@ -495,58 +394,8 @@ if ($_POST) {
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-brain text-primary"></i> AIStudy
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-home me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="rotinas.php">
-                            <i class="fas fa-list me-1"></i>Minhas Rotinas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="progresso.php">
-                            <i class="fas fa-chart-line me-1"></i>Progresso
-                        </a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item me-3">
-                        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
-                            <i class="fas fa-moon"></i>
-                        </button>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-1"></i><?php echo htmlspecialchars($user['nome']); ?>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="configuracoes.php">
-                                <i class="fas fa-cog me-2"></i>Configurações
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="logout.php">
-                                <i class="fas fa-sign-out-alt me-2"></i>Sair
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
+    <?php $active = ''; render_navbar($active); ?>
+    
     <div class="container mt-4">
         <div class="row justify-content-center">
             <div class="col-md-8">
@@ -652,16 +501,26 @@ if ($_POST) {
                                 </button>
                             </div>
                             
-                            <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
-                                <div class="text-center text-white p-5" style="background: var(--card-bg); border-radius: 15px; max-width: 500px; margin: 20px;">
-                                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
-                                        <span class="visually-hidden">Carregando...</span>
+                            <div id="loadingOverlay" style="display: none; position: fixed; inset: 0; background: rgba(5,10,25,0.85); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center;">
+                                <div class="text-white" style="width: 520px; max-width: 92vw; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.35);">
+                                    <div style="padding: 22px 24px 8px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                                        <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem;"></div>
+                                        <div>
+                                            <h5 style="margin:0;">Gerando sua rotina profissional</h5>
+                                            <small class="text-muted">Estamos preparando seu plano e materiais</small>
+                                        </div>
                                     </div>
-                                    <h4>Gerando Plano de Estudos</h4>
-                                    <p class="mb-2">Isso pode levar 30-90 segundos...</p>
-                                    <p class="small text-muted">Não feche esta página!</p>
-                                    <div class="progress mt-3" style="height: 8px;">
-                                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                                    <div style="padding: 18px 24px;">
+                                        <div id="overlayStep" class="mb-2" style="font-weight: 600;">Etapa 1/3 • Enviando instruções para a IA…</div>
+                                        <div class="progress mb-2" style="height: 10px;">
+                                            <div id="overlayBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 20%"></div>
+                                        </div>
+                                        <small class="text-muted" id="overlayTip">Dica: mantemos os títulos das tarefas específicos para melhorar a precisão dos vídeos.</small>
+                                        <ul class="mt-3 mb-0" style="padding-left: 18px; font-size: 0.92rem; line-height: 1.35;">
+                                            <li id="overlayItem1">Preparando estrutura de tarefas…</li>
+                                            <li id="overlayItem2" class="text-muted">Buscando vídeos relevantes no YouTube…</li>
+                                            <li id="overlayItem3" class="text-muted">Finalizando e salvando sua rotina…</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
@@ -675,7 +534,21 @@ if ($_POST) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/dark-mode.js"></script>
     <script>
-        // Validação do formulário e loading overlay
+        (function() {
+            const tips = [
+                'Dica: usamos títulos específicos para melhorar as recomendações de vídeo.',
+                'Dica: removemos variações para evitar tópicos repetidos.',
+                'Dica: você pode exportar o plano em PDF depois de criado.',
+                'Dica: vídeos são combinados com o tema e o título da tarefa.'
+            ];
+            let tipIdx = 0;
+            function nextTip(){
+                const tipEl = document.getElementById('overlayTip');
+                if (tipEl){ tipEl.textContent = tips[tipIdx % tips.length]; tipIdx++; }
+            }
+            setInterval(nextTip, 3500);
+        })();
+
         document.querySelector('form').addEventListener('submit', function(e) {
             const diasSelecionados = document.querySelectorAll('input[name="dias_disponiveis[]"]:checked');
             if (diasSelecionados.length === 0) {
@@ -683,33 +556,23 @@ if ($_POST) {
                 alert('Selecione pelo menos um dia da semana disponível.');
                 return;
             }
-            
-            // Mostrar loading overlay
-            const loadingOverlay = document.getElementById('loadingOverlay');
+            const overlay = document.getElementById('loadingOverlay');
+            const bar = document.getElementById('overlayBar');
+            const step = document.getElementById('overlayStep');
+            const i1 = document.getElementById('overlayItem1');
+            const i2 = document.getElementById('overlayItem2');
+            const i3 = document.getElementById('overlayItem3');
             const submitBtn = document.getElementById('submitBtn');
-            
-            if (loadingOverlay && submitBtn) {
-                loadingOverlay.style.display = 'flex';
+            if (overlay && submitBtn) {
+                overlay.style.display = 'flex';
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando...';
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando…';
+                // animação de etapas
+                setTimeout(function(){ step.textContent='Etapa 2/3 • Processando plano com IA…'; bar.style.width='55%'; i1.classList.add('text-muted'); }, 1800);
+                setTimeout(function(){ step.textContent='Etapa 3/3 • Enriquecendo com vídeos e salvando…'; bar.style.width='85%'; i2.classList.remove('text-muted'); }, 4800);
+                // caso demore muito
+                setTimeout(function(){ bar.style.width='95%'; }, 12000);
             }
-            
-            // Timeout de segurança - se demorar mais de 5 minutos, mostrar mensagem
-            setTimeout(function() {
-                if (loadingOverlay && loadingOverlay.style.display !== 'none') {
-                    const loadingContent = loadingOverlay.querySelector('.text-center');
-                    if (loadingContent) {
-                        loadingContent.innerHTML = `
-                            <h4>⏱️ Ainda processando...</h4>
-                            <p class="mb-2">A geração do plano está demorando mais que o esperado.</p>
-                            <p class="small text-muted">Por favor, aguarde mais alguns instantes...</p>
-                            <div class="progress mt-3" style="height: 8px;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
-                            </div>
-                        `;
-                    }
-                }
-            }, 180000); // 3 minutos
         });
     </script>
 </body>

@@ -84,6 +84,17 @@ $message = '';
     </script>
 </head>
 <body>
+    <div class="container mt-4">
+        <?php if ($flash = getFlash()): ?>
+            <?php if (!empty($flash['success'])): ?>
+                <div class="alert alert-success"><i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($flash['success']); ?></div>
+            <?php endif; ?>
+            <?php if (!empty($flash['error'])): ?>
+                <div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i><?php echo htmlspecialchars($flash['error']); ?></div>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+    
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container">

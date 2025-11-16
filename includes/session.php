@@ -36,4 +36,28 @@ function logout() {
     header('Location: login.php');
     exit();
 }
+
+// Flash messages helpers
+function setFlash(string $type, string $message): void {
+    if (!isset($_SESSION['flash'])) {
+        $_SESSION['flash'] = [];
+    }
+    $_SESSION['flash'][$type] = $message;
+}
+
+function getFlash(?string $type = null) {
+    if (!isset($_SESSION['flash'])) {
+        return $type ? null : [];
+    }
+    if ($type === null) {
+        $all = $_SESSION['flash'];
+        unset($_SESSION['flash']);
+        return $all;
+    }
+    $msg = $_SESSION['flash'][$type] ?? null;
+    if ($msg !== null) {
+        unset($_SESSION['flash'][$type]);
+    }
+    return $msg;
+}
 ?>

@@ -14,10 +14,10 @@ INSERT INTO user_preferences (user_id, tema_preferido, idioma, notificacoes_emai
 (3, 'light', 'en', FALSE, TRUE, '20:00:00');
 
 -- Inserir estatísticas dos usuários
-INSERT INTO user_stats (user_id, total_rotinas, total_tarefas_concluidas, total_quizzes_realizados, tempo_total_estudado, nota_media_quizzes, streak_dias, ultimo_estudo) VALUES 
-(1, 0, 0, 0, 0, NULL, 0, NULL),
-(2, 0, 0, 0, 0, NULL, 0, NULL),
-(3, 0, 0, 0, 0, NULL, 0, NULL);
+INSERT INTO user_stats (user_id, total_rotinas, total_tarefas_concluidas, tempo_total_estudado, streak_dias, ultimo_estudo) VALUES 
+(1, 0, 0, 0, 0, NULL),
+(2, 0, 0, 0, 0, NULL),
+(3, 0, 0, 0, 0, NULL);
 
 -- Inserir rotinas de exemplo
 INSERT INTO routines (user_id, titulo, tema, nivel, tempo_diario, dias_disponiveis, horario_disponivel, progresso, status, data_inicio) VALUES 
@@ -50,32 +50,12 @@ INSERT INTO tasks (routine_id, titulo, descricao, dia_estudo, ordem, status, mat
 (4, 'Cálculo Avançado - Integrais', 'Integrais complexas e aplicações', 1, 1, 'pendente', '{"videos": [{"id": "dQw4w9WgXcQ", "title": "Integrais Avançadas", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}], "textos": ["Livro: Cálculo Avançado - Capítulo 1"], "exercicios": ["Exercício 1: Integrais por partes", "Exercício 2: Substituição trigonométrica"]}', 90, 'dificil'),
 (4, 'Álgebra Linear - Espaços Vetoriais', 'Conceitos avançados de álgebra linear', 1, 2, 'pendente', '{"videos": [{"id": "kqtD5dpn9C8", "title": "Espaços Vetoriais", "url": "https://www.youtube.com/watch?v=kqtD5dpn9C8"}], "textos": ["Livro: Álgebra Linear Avançada - Capítulo 1"], "exercicios": ["Exercício 3: Base e dimensão", "Exercício 4: Transformações lineares"]}', 90, 'dificil');
 
--- Inserir quiz de exemplo
-INSERT INTO quizzes (routine_id, titulo, tipo, assunto, perguntas_json, status) VALUES 
-(1, 'Quiz: Python Básico', 'geral', 'Python', '[
-    {
-        "pergunta": "O que é Python?",
-        "opcoes": ["Uma linguagem de programação", "Um tipo de cobra", "Um sistema operacional", "Um banco de dados"],
-        "resposta_correta": 0
-    },
-    {
-        "pergunta": "Como se declara uma variável em Python?",
-        "opcoes": ["var nome = valor", "int nome = valor", "nome = valor", "let nome = valor"],
-        "resposta_correta": 2
-    },
-    {
-        "pergunta": "Qual comando imprime algo na tela em Python?",
-        "opcoes": ["print()", "echo()", "console.log()", "printf()"],
-        "resposta_correta": 0
-    }
-]', 'pendente');
-
 -- Inserir progresso diário de exemplo
-INSERT INTO daily_progress (user_id, routine_id, data, tarefas_concluidas, total_tarefas, tempo_estudado, quizzes_realizados, nota_media) VALUES 
-(1, 1, '2024-01-15', 2, 2, 60, 0, NULL),
-(1, 1, '2024-01-16', 0, 2, 0, 0, NULL),
-(2, 3, '2024-01-10', 2, 2, 90, 0, NULL),
-(2, 3, '2024-01-12', 0, 1, 0, 0, NULL);
+INSERT INTO daily_progress (user_id, routine_id, data, tarefas_concluidas, total_tarefas, tempo_estudado) VALUES 
+(1, 1, '2024-01-15', 2, 2, 60),
+(1, 1, '2024-01-16', 0, 2, 0),
+(2, 3, '2024-01-10', 2, 2, 90),
+(2, 3, '2024-01-12', 0, 1, 0);
 
 -- Inserir logs de atividade de exemplo
 INSERT INTO activity_logs (user_id, acao, detalhes, ip_address, user_agent) VALUES 
@@ -83,3 +63,14 @@ INSERT INTO activity_logs (user_id, acao, detalhes, ip_address, user_agent) VALU
 (1, 'criar_rotina', '{"rotina_id": 1, "tema": "Python"}', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'),
 (2, 'login', '{"timestamp": "2024-01-10 20:00:00"}', '192.168.1.101', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'),
 (2, 'criar_rotina', '{"rotina_id": 3, "tema": "Coreano"}', '192.168.1.101', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+-- Popular tabela planos com planos padrão
+INSERT INTO planos (nome, slug, preco_mensal, descricao, recursos, ativo) VALUES
+('Free', 'free', 0.00, 'Plano gratuito com funcionalidades básicas', 
+ '["rotinas_gerais", "resumos_basicos"]', TRUE),
+('ENEM+', 'enem_plus', 29.90, 'Plano completo para preparação ENEM', 
+ '["rotinas_gerais", "modo_enem", "resumos_completos", "suporte_prioritario"]', TRUE),
+('Concurso+', 'concurso_plus', 39.90, 'Plano completo para concursos públicos', 
+ '["rotinas_gerais", "modo_concurso", "resumos_completos", "suporte_prioritario"]', TRUE),
+('Premium', 'premium', 49.90, 'Plano completo com todos os recursos', 
+ '["rotinas_gerais", "modo_enem", "modo_concurso", "resumos_completos", "suporte_prioritario", "recursos_avancados"]', TRUE);

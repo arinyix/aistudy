@@ -22,6 +22,8 @@ CREATE TABLE routines (
     user_id INT NOT NULL,
     titulo VARCHAR(200) NOT NULL,
     tema VARCHAR(100) NOT NULL,
+    tipo ENUM('geral', 'enem', 'concurso') NOT NULL DEFAULT 'geral',
+    contexto_json TEXT NULL COMMENT 'Dados específicos do tipo (banca, cargo, ano ENEM, etc.)',
     nivel ENUM('iniciante', 'intermediario', 'avancado') NOT NULL,
     tempo_diario INT NOT NULL COMMENT 'em minutos',
     dias_disponiveis JSON NOT NULL COMMENT 'array de dias da semana',
@@ -53,39 +55,6 @@ CREATE TABLE tasks (
     FOREIGN KEY (routine_id) REFERENCES routines(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Tabela de quizzes
-CREATE TABLE quizzes (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    routine_id INT NOT NULL,
-    task_id INT DEFAULT NULL,
-    dia_estudo INT DEFAULT NULL,
-    tipo ENUM('geral', 'dia', 'tarefa') NOT NULL DEFAULT 'geral',
-    titulo VARCHAR(200) NOT NULL,
-    assunto VARCHAR(100) DEFAULT NULL,
-    perguntas_json JSON NOT NULL COMMENT 'array de perguntas e respostas',
-    respostas_usuario JSON COMMENT 'respostas do usuário',
-    nota DECIMAL(5,2),
-    tempo_realizado INT DEFAULT NULL COMMENT 'tempo em segundos',
-    status ENUM('pendente', 'concluido') DEFAULT 'pendente',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (routine_id) REFERENCES routines(id) ON DELETE CASCADE,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Tabela de histórico de quizzes
-CREATE TABLE quiz_attempts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    quiz_id INT NOT NULL,
-    user_id INT NOT NULL,
-    respostas JSON NOT NULL,
-    nota DECIMAL(5,2) NOT NULL,
-    tempo_realizado INT NOT NULL COMMENT 'tempo em segundos',
-    data_tentativa TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Tabela de progresso diário
 CREATE TABLE daily_progress (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -95,8 +64,6 @@ CREATE TABLE daily_progress (
     tarefas_concluidas INT DEFAULT 0,
     total_tarefas INT NOT NULL,
     tempo_estudado INT DEFAULT 0 COMMENT 'tempo em minutos',
-    quizzes_realizados INT DEFAULT 0,
-    nota_media DECIMAL(5,2) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (routine_id) REFERENCES routines(id) ON DELETE CASCADE,
@@ -136,9 +103,7 @@ CREATE TABLE user_stats (
     user_id INT NOT NULL,
     total_rotinas INT DEFAULT 0,
     total_tarefas_concluidas INT DEFAULT 0,
-    total_quizzes_realizados INT DEFAULT 0,
     tempo_total_estudado INT DEFAULT 0 COMMENT 'em minutos',
-    nota_media_quizzes DECIMAL(5,2) DEFAULT NULL,
     streak_dias INT DEFAULT 0 COMMENT 'sequência de dias estudando',
     ultimo_estudo DATE DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -160,16 +125,45 @@ CREATE TABLE study_materials (
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Tabela de planos
+CREATE TABLE planos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(50) NOT NULL,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    preco_mensal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    descricao TEXT,
+    recursos JSON DEFAULT NULL COMMENT 'Lista de recursos disponíveis no plano',
+    ativo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela de assinaturas
+CREATE TABLE assinaturas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    plano_id INT NOT NULL,
+    gateway VARCHAR(50) NOT NULL COMMENT 'mercado_pago, stripe, etc.',
+    status ENUM('ativo', 'pendente', 'cancelado', 'expirado') NOT NULL DEFAULT 'pendente',
+    data_inicio DATETIME NOT NULL,
+    data_fim DATETIME NULL,
+    external_id VARCHAR(255) NULL COMMENT 'ID da assinatura no gateway externo',
+    dados_pagamento JSON DEFAULT NULL COMMENT 'Dados adicionais do pagamento',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (plano_id) REFERENCES planos(id) ON DELETE RESTRICT,
+    INDEX idx_assinaturas_user_id (user_id),
+    INDEX idx_assinaturas_status (status),
+    INDEX idx_assinaturas_external_id (external_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Índices para melhor performance
 CREATE INDEX idx_routines_user_id ON routines(user_id);
 CREATE INDEX idx_routines_status ON routines(status);
+CREATE INDEX idx_routines_tipo ON routines(tipo);
 CREATE INDEX idx_tasks_routine_id ON tasks(routine_id);
 CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_quizzes_routine_id ON quizzes(routine_id);
-CREATE INDEX idx_quizzes_task_id ON quizzes(task_id);
-CREATE INDEX idx_quizzes_tipo ON quizzes(tipo);
-CREATE INDEX idx_quiz_attempts_user_id ON quiz_attempts(user_id);
-CREATE INDEX idx_quiz_attempts_quiz_id ON quiz_attempts(quiz_id);
 CREATE INDEX idx_daily_progress_user_date ON daily_progress(user_id, data);
 CREATE INDEX idx_activity_logs_user_id ON activity_logs(user_id);
 CREATE INDEX idx_activity_logs_acao ON activity_logs(acao);

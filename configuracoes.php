@@ -2,6 +2,7 @@
 require_once 'config/database.php';
 require_once 'classes/User.php';
 require_once 'includes/session.php';
+require_once 'includes/navbar.php';
 
 requireLogin();
 
@@ -126,67 +127,7 @@ if ($_POST) {
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-brain text-primary"></i> AIStudy
-            </a>
-            
-            <!-- Container com toggle switch (mobile) e hambúrguer - apenas no mobile -->
-            <div class="d-flex align-items-center gap-2 d-lg-none">
-                <button class="theme-toggle-switch" onclick="toggleTheme()" type="button" aria-label="Alternar tema">
-                    <span class="theme-toggle-slider"></span>
-                </button>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-            </div>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-home me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="rotinas.php">
-                            <i class="fas fa-list me-1"></i>Minhas Rotinas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="progresso.php">
-                            <i class="fas fa-chart-line me-1"></i>Progresso
-                        </a>
-                    </li>
-                </ul>
-                
-                <ul class="navbar-nav">
-                    <!-- Botão de tema para desktop -->
-                    <li class="nav-item me-3 d-none d-lg-block">
-                        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
-                            <i class="fas fa-moon"></i>
-                        </button>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-1"></i><?php echo htmlspecialchars($user['nome']); ?>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item active" href="configuracoes.php">
-                                <i class="fas fa-cog me-2"></i>Configurações
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="logout.php">
-                                <i class="fas fa-sign-out-alt me-2"></i>Sair
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <?php $active = ''; render_navbar($active); ?>
 
     <div class="container mt-5 mb-5">
         <!-- Header Profissional -->
@@ -263,13 +204,12 @@ if ($_POST) {
                             <div class="settings-form-group" id="senhaConfirmacaoContainer" style="display: none;">
                                 <label for="senha_confirmacao" class="settings-label">
                                     <i class="fas fa-lock"></i>
-                                    <span>Confirmar Senha</span>
-                                    <span class="settings-required">*</span>
+                                    <span>Senha Atual (para alterar email)</span>
                                 </label>
                                 <div class="settings-input-wrapper">
                                     <input type="password" class="settings-input settings-input-warning" 
                                            id="senha_confirmacao" name="senha_confirmacao" 
-                                           placeholder="Digite sua senha atual">
+                                           placeholder="Digite sua senha">
                                 </div>
                                 <div class="settings-form-help settings-form-help-warning">
                                     <i class="fas fa-exclamation-triangle"></i>

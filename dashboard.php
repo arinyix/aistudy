@@ -3,6 +3,8 @@ require_once 'config/database.php';
 require_once 'includes/session.php';
 require_once 'classes/Routine.php';
 require_once 'classes/Calendar.php';
+require_once 'includes/plan-check.php';
+require_once 'includes/navbar.php';
 
 requireLogin();
 
@@ -13,7 +15,10 @@ $calendar = new Calendar($db);
 
 $user = getCurrentUser();
 
-// Buscar rotinas do usuário
+// Buscar plano ativo do usuário
+$planoAtivo = getUserActivePlan($user['id']);
+
+// Buscar rotinas do usuário (todos os tipos)
 $routines = $routine->getUserRoutines($user['id']);
 
 // Buscar tarefas do dia atual
@@ -69,75 +74,33 @@ sort($nextStudyDates);
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-brain text-primary"></i> AIStudy
-            </a>
-            
-            <!-- Container com toggle switch (mobile) e hambúrguer - apenas no mobile -->
-            <div class="d-flex align-items-center gap-2 d-lg-none">
-                <button class="theme-toggle-switch" onclick="toggleTheme()" type="button" aria-label="Alternar tema">
-                    <span class="theme-toggle-slider"></span>
-                </button>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-            </div>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-home me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="rotinas.php">
-                            <i class="fas fa-list me-1"></i>Minhas Rotinas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="progresso.php">
-                            <i class="fas fa-chart-line me-1"></i>Progresso
-                        </a>
-                    </li>
-                </ul>
-                
-                <ul class="navbar-nav">
-                    <!-- Botão de tema para desktop -->
-                    <li class="nav-item me-3 d-none d-lg-block">
-                        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar modo escuro/claro">
-                            <i class="fas fa-moon"></i>
-                        </button>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-1"></i><?php echo htmlspecialchars($user['nome']); ?>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="configuracoes.php">
-                                <i class="fas fa-cog me-2"></i>Configurações
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="logout.php">
-                                <i class="fas fa-sign-out-alt me-2"></i>Sair
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
+    <?php $active = 'dashboard'; render_navbar($active); ?>
+    
     <div class="container mt-5 mb-5">
         <!-- Header -->
         <div class="row mb-5">
             <div class="col-12">
-                <h1 class="text-gradient mb-3" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">
-                    Bem-vindo, <?php echo htmlspecialchars($user['nome']); ?>! 👋
-                </h1>
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h1 class="text-gradient mb-3" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">
+                            Bem-vindo, <?php echo htmlspecialchars($user['nome']); ?>! 👋
+                        </h1>
+                    </div>
+                    <?php if ($planoAtivo): ?>
+                        <div class="text-end">
+                            <span class="badge bg-success fs-6 px-3 py-2">
+                                <i class="fas fa-crown me-2"></i>
+                                <?php echo htmlspecialchars($planoAtivo['nome']); ?>
+                            </span>
+                        </div>
+                    <?php else: ?>
+                        <div class="text-end">
+                            <a href="planos.php" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-star me-2"></i>Ver Planos
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
                 <p class="text-muted" style="font-size: 1.1rem;">Aqui está seu resumo de estudos para hoje</p>
             </div>
         </div>

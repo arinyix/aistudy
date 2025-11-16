@@ -9,6 +9,8 @@ class Routine {
     public $user_id;
     public $titulo;
     public $tema;
+    public $tipo; // 'geral', 'enem', 'concurso'
+    public $contexto_json; // Dados específicos do tipo (banca, cargo, ano ENEM, etc.)
     public $nivel;
     public $tempo_diario;
     public $dias_disponiveis;
@@ -21,8 +23,21 @@ class Routine {
     }
     
     public function create() {
+        // Se tipo não foi definido, usar 'geral' como padrão
+        if (empty($this->tipo)) {
+            $this->tipo = 'geral';
+        }
+        
+        // Se contexto_json é array, converter para JSON
+        if (is_array($this->contexto_json)) {
+            $this->contexto_json = json_encode($this->contexto_json);
+        } elseif (empty($this->contexto_json)) {
+            $this->contexto_json = null;
+        }
+        
         $query = "INSERT INTO " . $this->table_name . " 
-                  SET user_id=:user_id, titulo=:titulo, tema=:tema, nivel=:nivel, 
+                  SET user_id=:user_id, titulo=:titulo, tema=:tema, tipo=:tipo, 
+                      contexto_json=:contexto_json, nivel=:nivel, 
                       tempo_diario=:tempo_diario, dias_disponiveis=:dias_disponiveis, 
                       horario_disponivel=:horario_disponivel";
         
@@ -31,6 +46,7 @@ class Routine {
         $this->user_id = htmlspecialchars(strip_tags($this->user_id));
         $this->titulo = htmlspecialchars(strip_tags($this->titulo));
         $this->tema = htmlspecialchars(strip_tags($this->tema));
+        $this->tipo = htmlspecialchars(strip_tags($this->tipo));
         $this->nivel = htmlspecialchars(strip_tags($this->nivel));
         $this->tempo_diario = htmlspecialchars(strip_tags($this->tempo_diario));
         $this->dias_disponiveis = json_encode($this->dias_disponiveis);
@@ -39,6 +55,8 @@ class Routine {
         $stmt->bindParam(":user_id", $this->user_id);
         $stmt->bindParam(":titulo", $this->titulo);
         $stmt->bindParam(":tema", $this->tema);
+        $stmt->bindParam(":tipo", $this->tipo);
+        $stmt->bindParam(":contexto_json", $this->contexto_json);
         $stmt->bindParam(":nivel", $this->nivel);
         $stmt->bindParam(":tempo_diario", $this->tempo_diario);
         $stmt->bindParam(":dias_disponiveis", $this->dias_disponiveis);
@@ -50,13 +68,23 @@ class Routine {
         return false;
     }
     
-    public function getUserRoutines($user_id) {
+    public function getUserRoutines($user_id, $tipo = null) {
         $query = "SELECT * FROM " . $this->table_name . " 
-                  WHERE user_id = :user_id 
-                  ORDER BY created_at DESC";
+                  WHERE user_id = :user_id";
+        
+        if ($tipo) {
+            $query .= " AND tipo = :tipo";
+        }
+        
+        $query .= " ORDER BY created_at DESC";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":user_id", $user_id);
+        
+        if ($tipo) {
+            $stmt->bindParam(":tipo", $tipo);
+        }
+        
         $stmt->execute();
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
