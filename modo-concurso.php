@@ -47,7 +47,7 @@ $message = '';
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="tema" class="form-label">Tema/Área do Concurso *</label>
-                                    <input type="text" class="form-control" id="tema" name="tema" placeholder="Ex: Tribunais (TRT/TJ/TRE), Polícia, Fiscal, Receita Federal" required>
+                                    <input type="text" class="form-control" id="tema" name="tema" placeholder="Ex: Receita Federal, Tribunais, Polícia, Fiscal" required>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="banca" class="form-label">Banca Principal *</label>
@@ -63,6 +63,7 @@ $message = '';
                                     </select>
                                 </div>
                             </div>
+
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
@@ -143,8 +144,8 @@ $message = '';
                             
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Plano Concurso Personalizado:</strong> Nossa IA criará um plano focado na banca selecionada, 
-                                matérias do edital, questões específicas da banca e estratégias de prova para maximizar sua aprovação.
+                                <strong>Plano Concurso Automatizado:</strong> Nossa IA irá inferir automaticamente as disciplinas cobradas para este tema/área e banca, 
+                                criando tarefas específicas com subtemas reais. Você só precisa informar o tema, a banca e suas preferências de estudo.
                             </div>
                             
                             <div class="d-flex justify-content-between">
@@ -162,19 +163,19 @@ $message = '';
                                         <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem;"></div>
                                         <div>
                                             <h5 style="margin:0;">Gerando sua rotina para Concurso</h5>
-                                            <small class="text-muted">Plano por banca, matérias e revisões</small>
+                                            <small class="text-muted">Inferindo disciplinas e criando tarefas específicas</small>
                                         </div>
                                     </div>
                                     <div style="padding: 18px 24px;">
-                                        <div id="overlayStep" class="mb-2" style="font-weight: 600;">Etapa 1/3 • Enviando instruções para a IA…</div>
+                                        <div id="overlayStep" class="mb-2" style="font-weight: 600;">Etapa 1/3 • Analisando tema e banca…</div>
                                         <div class="progress mb-2" style="height: 10px;">
                                             <div id="overlayBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 20%"></div>
                                         </div>
-                                        <small class="text-muted" id="overlayTip">Dica: ponderamos o tempo por disciplina usando os pesos informados.</small>
-                    					<ul class="mt-3 mb-0" style="padding-left: 18px; font-size: 0.92rem; line-height: 1.35;">
-                                            <li id="overlayItem1">Preparando estrutura de tarefas…</li>
-                                            <li id="overlayItem2" class="text-muted">Buscando vídeos relevantes no YouTube…</li>
-                                            <li id="overlayItem3" class="text-muted">Finalizando e salvando sua rotina…</li>
+                                        <small class="text-muted" id="overlayTip">A IA está inferindo as disciplinas cobradas para este concurso.</small>
+                                        <ul class="mt-3 mb-0" style="padding-left: 18px; font-size: 0.92rem; line-height: 1.35;">
+                                            <li id="overlayItem1">Inferindo disciplinas do concurso…</li>
+                                            <li id="overlayItem2" class="text-muted">Criando tarefas específicas por disciplina…</li>
+                                            <li id="overlayItem3" class="text-muted">Buscando vídeos e finalizando…</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -191,9 +192,9 @@ $message = '';
     <script>
         (function() {
             const tips = [
-                'Dica: focamos no estilo da banca selecionada.',
-                'Dica: alternamos teoria, questões e revisão para fixação.',
-                'Dica: marque as tarefas concluídas para ver seu progresso.'
+                'A IA está analisando o tema e a banca para inferir as disciplinas.',
+                'Criando tarefas específicas com subtemas reais de cada disciplina.',
+                'Cada tarefa terá formato: Disciplina: Subtema — [Banca].'
             ];
             let tipIdx = 0;
             function nextTip(){
@@ -206,19 +207,8 @@ $message = '';
         document.getElementById('concursoForm').addEventListener('submit', function(e) {
             const diasSelecionados = document.querySelectorAll('input[name="dias_disponiveis[]"]:checked');
             const tema = document.getElementById('tema').value.trim();
-            
-            if (!tema) {
-                e.preventDefault();
-                alert('Informe o tema/área do concurso.');
-                return;
-            }
-            
-            if (diasSelecionados.length === 0) {
-                e.preventDefault();
-                alert('Selecione pelo menos um dia da semana disponível.');
-                return;
-            }
-            
+            if (!tema) { e.preventDefault(); alert('Informe o tema/área do concurso.'); return; }
+            if (diasSelecionados.length === 0) { e.preventDefault(); alert('Selecione pelo menos um dia da semana disponível.'); return; }
             const overlay = document.getElementById('loadingOverlay');
             const bar = document.getElementById('overlayBar');
             const step = document.getElementById('overlayStep');
@@ -230,7 +220,7 @@ $message = '';
                 overlay.style.display = 'flex';
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando…';
-                setTimeout(function(){ step.textContent='Etapa 2/3 • Processando plano com IA…'; bar.style.width='55%'; i1.classList.add('text-muted'); }, 1800);
+                setTimeout(function(){ step.textContent='Etapa 2/3 • Criando plano com tarefas específicas…'; bar.style.width='55%'; i1.classList.add('text-muted'); }, 1800);
                 setTimeout(function(){ step.textContent='Etapa 3/3 • Enriquecendo com vídeos e salvando…'; bar.style.width='85%'; i2.classList.remove('text-muted'); }, 4800);
                 setTimeout(function(){ bar.style.width='95%'; }, 12000);
             }

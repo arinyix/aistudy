@@ -2,10 +2,7 @@
 // Iniciar output buffering para evitar problemas de headers
 ob_start();
 
-// Configurar timeouts e error reporting
-// Habilitar exibição de erros temporariamente para debug
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Configurar timeouts
 
 require_once 'config/database.php';
 require_once 'config/api.php';
@@ -36,8 +33,34 @@ function normalizeStudyPlan($data) {
     }
 
     // Top-level aliases
-    if (isset($data['days']) && !isset($data['dias'])) $data['dias'] = $data['days'];
-    if (isset($data['description']) && !isset($data['descricao'])) $data['descricao'] = $data['description'];
+    if (isset($data['days']) && !isset($data['dias'])) {
+        $data['dias'] = $data['days'];
+    }
+    if (isset($data['description']) && !isset($data['descricao'])) {
+        $data['descricao'] = $data['description'];
+    }
+
+    // Detect alternative containers for days (cronograma, schedule, semanas, calendario)
+    if (!isset($data['dias'])) {
+        foreach (['cronograma', 'schedule', 'semanas', 'calendario', 'programa', 'plan_dias', 'dias_semana', 'week'] as $alt) {
+            if (isset($data[$alt]) && is_array($data[$alt])) { 
+                $data['dias'] = $data[$alt]; 
+                break; 
+            }
+        }
+        // Fallback heuristic: find first top-level array of objects containing tarefas/tasks
+        if (!isset($data['dias'])) {
+            foreach ($data as $k => $v) {
+                if (is_array($v) && !empty($v) && isset($v[0]) && is_array($v[0])) {
+                    $first = $v[0];
+                    if (isset($first['tarefas']) || isset($first['tasks']) || isset($first['atividades']) || isset($first['items']) || isset($first['tarefa']) || isset($first['task']) || isset($first['dia']) || isset($first['day']) || isset($first['dia_estudo'])) { 
+                        $data['dias'] = $v; 
+                        break; 
+                    }
+                }
+            }
+        }
+    }
 
     $normalized = [
         'titulo' => isset($data['titulo']) ? (string)$data['titulo'] : 'Plano de Estudos',
@@ -46,8 +69,12 @@ function normalizeStudyPlan($data) {
     ];
 
     $dias = $data['dias'] ?? [];
+    
     // Some models may return an object map {"1": {...}, "2": {...}}
-    if (!is_array($dias)) $dias = [];
+    if (!is_array($dias)) {
+        $dias = [];
+    }
+    
     if (!empty($dias) && array_keys($dias) !== range(0, count($dias) - 1)) {
         // associative map => transform to indexed array ordered by key
         $dias = array_values(array_replace([], $dias));
@@ -111,33 +138,59 @@ function normalizeStudyPlan($data) {
 function flexibleJsonDecode($str) {
     if (!is_string($str) || trim($str) === '') return null;
     $original = $str;
-    // Strip markdown fences
+    
+    // Remover markdown code blocks (múltiplas variações)
     $str = preg_replace('/```json\s*/i', '', $str);
     $str = preg_replace('/```\s*/', '', $str);
-    // Extract between first { and last }
+    $str = preg_replace('/```json\s*/i', '', $str);
+    $str = preg_replace('/^```\s*/m', '', $str);
+    $str = preg_replace('/\s*```$/m', '', $str);
+    
+    // Remover texto antes do primeiro {
     $first = strpos($str, '{');
-    $last = strrpos($str, '}');
-    if ($first !== false && $last !== false && $last > $first) {
-        $str = substr($str, $first, $last - $first + 1);
+    if ($first !== false && $first > 0) {
+        $str = substr($str, $first);
     }
-    // Convert single-quoted keys and values to double quotes conservatively
-    // Keys: 'key': -> "key":
-    $str = preg_replace("/'\s*:\s*/", '": ', preg_replace("/'([A-Za-z0-9_]+)'\s*:/", '"$1":', $str));
-    // Values: : 'value' -> : "value"
-    $str = preg_replace("/:\s*'([^'\\\n\r]*)'/", ': "$1"', $str);
-    // Remove trailing commas
-    $str = preg_replace('/,\s*}/', '}', $str);
-    $str = preg_replace('/,\s*]/', ']', $str);
-    // Control chars
-    $str = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $str);
+    
+    // Extrair entre primeiro { e último }
+    $last = strrpos($str, '}');
+    if ($last !== false && $last > 0) {
+        $str = substr($str, 0, $last + 1);
+    }
+    
+    // Tentar decode direto primeiro
     $decoded = json_decode($str, true);
     if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
         return $decoded;
     }
-    // Last resort: try to decode as JSON5-like by replacing remaining single quotes
+    
+    // Converter single quotes para double quotes (conservador)
+    // Keys: 'key': -> "key":
+    $str = preg_replace("/'([A-Za-z0-9_]+)'\s*:/", '"$1":', $str);
+    // Values: : 'value' -> : "value" (mas não dentro de strings já com aspas)
+    $str = preg_replace("/:\s*'([^'\\\n\r]*)'/", ': "$1"', $str);
+    
+    // Remover trailing commas
+    $str = preg_replace('/,\s*}/', '}', $str);
+    $str = preg_replace('/,\s*]/', ']', $str);
+    
+    // Remover control chars
+    $str = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $str);
+    
+    // Tentar decode novamente
+    $decoded = json_decode($str, true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        return $decoded;
+    }
+    
+    // Último recurso: substituir todas as single quotes restantes
     $tmp = str_replace("'", '"', $str);
     $decoded = json_decode($tmp, true);
-    return (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : null;
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        return $decoded;
+    }
+    
+    return null;
 }
 
 requireLogin();
@@ -184,9 +237,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ini_set('max_execution_time', 300);
         ini_set('max_input_time', 300);
         
-        error_log("=== INICIANDO CRIAÇÃO DE ROTINA ===");
-        error_log("Tipo: {$tipo_rotina}, Nível: {$nivel}, Tempo: {$tempo_diario}min");
-        
         $database = new Database();
         $db = $database->getConnection();
         
@@ -202,18 +252,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
             $tema = "ENEM " . ($_POST['ano_enem'] ?? date('Y') + 1);
         } elseif ($tipo_rotina === 'concurso') {
-            $materias = $_POST['materias_principais'] ?? '';
-            $materiasArray = $materias !== '' ? array_map('trim', explode(',', $materias)) : [];
             $tipoConcursoForm = $_POST['tema'] ?? ($_POST['tipo_concurso'] ?? '');
             $contexto_json = [
                 'tipo_concurso' => $tipoConcursoForm,
-                'cargo' => $_POST['cargo'] ?? '',
-                'orgao' => $_POST['orgao'] ?? '',
-                'uf' => $_POST['uf'] ?? '',
                 'banca' => $_POST['banca'] ?? '',
-                'situacao_edital' => $_POST['situacao_edital'] ?? 'pre-edital',
-                'materias_principais' => $materiasArray,
-                'pesos_disciplinas' => $_POST['pesos_disciplinas'] ?? '',
                 'dificuldades' => $_POST['dificuldades'] ?? ''
             ];
             $tema = ($tipoConcursoForm ?: 'Concurso');
@@ -232,22 +274,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $routine->dias_disponiveis = $dias_disponiveis;
         $routine->horario_disponivel = $horario_disponivel;
         
-        error_log("Criando rotina no banco de dados...");
         $routine_id = $routine->create();
         
         if (!$routine_id) {
             throw new Exception('Falha ao salvar rotina.');
         }
         
-        error_log("Rotina criada com sucesso! ID: {$routine_id}");
         $plano_data = null;
         
         // Tentar gerar plano com IA
         try {
-            error_log("Iniciando geração de plano via API OpenAI...");
-            $openai = new OpenAIService();
+            // Validar dados antes de chamar API
+            if ($tipo_rotina === 'concurso') {
+                if (empty($contexto_json['tipo_concurso']) || empty($contexto_json['banca'])) {
+                    throw new Exception('Dados do concurso incompletos: tipo_concurso ou banca faltando.');
+                }
+            }
             
-            $start_time = microtime(true);
+            $openai = new OpenAIService();
             
             // Usar método específico baseado no tipo
             if ($tipo_rotina === 'enem') {
@@ -270,39 +314,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
             }
             
-            $end_time = microtime(true);
-            $elapsed = round($end_time - $start_time, 2);
-            error_log("Plano gerado em {$elapsed} segundos");
+            // Tentar decodificar JSON diretamente
+            $plano_data = json_decode($plano, true);
+            $jsonError = json_last_error();
             
-            // Log para debug (apenas nos logs, sem salvar arquivos)
-            error_log("Resposta da API (primeiros 500 chars): " . substr($plano, 0, 500));
-            error_log("Tamanho total da resposta: " . strlen($plano) . " caracteres");
-            
-            // Estratégias de parse (mantidas)...
-            $plano_data = null;
-            $jsonError = null;
-            // ... existente (não removido)
+            if ($jsonError !== JSON_ERROR_NONE) {
+                // Tentar reparar JSON truncado (adicionar chaves de fechamento faltantes)
+                $planoReparado = $plano;
+                $abreChaves = substr_count($planoReparado, '{');
+                $fechaChaves = substr_count($planoReparado, '}');
+                $abreColchetes = substr_count($planoReparado, '[');
+                $fechaColchetes = substr_count($planoReparado, ']');
+                
+                if ($abreChaves > $fechaChaves || $abreColchetes > $fechaColchetes) {
+                    // Adicionar fechamentos faltantes
+                    while ($fechaColchetes < $abreColchetes) {
+                        $planoReparado .= ']';
+                        $fechaColchetes++;
+                    }
+                    while ($fechaChaves < $abreChaves) {
+                        $planoReparado .= '}';
+                        $fechaChaves++;
+                    }
+                    $plano_data = json_decode($planoReparado, true);
+                    if (json_last_error() !== JSON_ERROR_NONE || !is_array($plano_data)) {
+                        $plano_data = flexibleJsonDecode($plano);
+                    }
+                } else {
+                    // Tentar decoder flexível
+                    $plano_data = flexibleJsonDecode($plano);
+                }
+            }
         } catch (Exception $e) {
-            error_log("❌ ERRO ao gerar plano: " . $e->getMessage());
-            setFlash('error', 'Erro ao gerar plano com IA. Tente novamente.');
+            $errorMsg = $e->getMessage();
+            
+            // Mensagem mais específica baseada no tipo de erro
+            $userMessage = 'Erro ao gerar plano com IA.';
+            if (strpos($errorMsg, 'Chave da API') !== false) {
+                $userMessage = 'Erro de configuração: Chave da API OpenAI não está configurada.';
+            } elseif (strpos($errorMsg, 'conexão') !== false || strpos($errorMsg, 'timeout') !== false) {
+                $userMessage = 'Erro de conexão com a API. Verifique sua internet e tente novamente.';
+            } elseif (strpos($errorMsg, 'HTTP') !== false) {
+                $userMessage = 'Erro na API OpenAI. Verifique os logs do servidor para mais detalhes.';
+            } elseif (strpos($errorMsg, 'incompletos') !== false) {
+                $userMessage = 'Dados do formulário incompletos. Preencha todos os campos obrigatórios.';
+            }
+            
+            setFlash('error', $userMessage . ' Tente novamente.');
             header('Location: ' . $returnTo, true, 303);
             exit;
         }
         
-        // Se ainda não conseguiu decodificar, tentar decoder flexível (single quotes etc.)
-        if (!$plano_data) {
-            $flex = flexibleJsonDecode($plano ?? '');
-            if (is_array($flex)) {
-                $plano_data = $flex;
-                error_log('✅ JSON decodificado com sucesso via decoder flexível');
+        // Normalizar estrutura antes de validar campos essenciais
+        $plano_original = $plano_data; // Guardar original para fallback
+        if ($plano_data) {
+            $plano_data = normalizeStudyPlan($plano_data);
+            if (!$plano_data) {
+                // Se normalizeStudyPlan retornou null, tentar usar dados originais diretamente
+                if ($plano_original && is_array($plano_original) && isset($plano_original['dias']) && is_array($plano_original['dias']) && !empty($plano_original['dias'])) {
+                    $plano_data = $plano_original;
+                }
+            } else {
+                // Tentar última tentativa: verificar se há algum array que possa ser dias
+                if (!isset($plano_data['dias'])) {
+                    foreach ($plano_data as $key => $value) {
+                        if (is_array($value) && !empty($value) && isset($value[0]) && is_array($value[0])) {
+                            $firstItem = $value[0];
+                            if (isset($firstItem['dia']) || isset($firstItem['day']) || isset($firstItem['tarefas']) || isset($firstItem['tasks'])) {
+                                $plano_data['dias'] = $value;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
         
-        // Normalizar estrutura antes de validar campos essenciais
-        $plano_data = normalizeStudyPlan($plano_data);
+        // Validação mais flexível: aceitar se tiver pelo menos 1 dia válido
+        $diasValidos = 0;
+        if ($plano_data && is_array($plano_data) && isset($plano_data['dias']) && is_array($plano_data['dias'])) {
+            foreach ($plano_data['dias'] as $dia) {
+                if (is_array($dia) && isset($dia['tarefas']) && is_array($dia['tarefas']) && !empty($dia['tarefas'])) {
+                    $diasValidos++;
+                }
+            }
+        }
         
-        if (!$plano_data || empty($plano_data['dias']) || !is_array($plano_data['dias'])) {
-            setFlash('error', 'Estrutura do plano inválida.');
+        if (!$plano_data || !is_array($plano_data) || !isset($plano_data['dias']) || !is_array($plano_data['dias']) || $diasValidos === 0) {
+            $errorMsg = 'Estrutura do plano inválida. A IA não retornou a estrutura exigida. Tente novamente.';
+            setFlash('error', $errorMsg);
             header('Location: ' . $returnTo, true, 303);
             exit;
         }
@@ -310,14 +410,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Criar tarefas
         $task = new Task($db);
         $tarefas_criadas = 0;
-        $topicosJaCriados = [];
         // Preparar serviço do YouTube uma única vez
         $youtubeService = null;
         try {
             require_once 'classes/YouTubeService.php';
             $youtubeService = new YouTubeService();
         } catch (Throwable $ytEx) {
-            error_log('YouTubeService indisponível: ' . $ytEx->getMessage());
+            // YouTubeService indisponível, continuar sem vídeos
         }
         foreach ($plano_data['dias'] as $dia) {
             if (!isset($dia['tarefas']) || !is_array($dia['tarefas'])) {
@@ -339,10 +438,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $videosReais = $youtubeService->getEducationalVideos($topico, $nivel, 3);
                         if (!empty($videosReais)) {
                             $material['videos'] = $videosReais; // substituir por vídeos específicos
-                            error_log("Vídeos definidos para tópico '{$topico}': " . count($videosReais));
                         }
                     } catch (Throwable $e) {
-                        error_log('Falha na busca YouTube para tópico ' . $topico . ': ' . $e->getMessage());
+                        // Falha na busca YouTube, continuar sem vídeos
                         if (empty($material['videos'])) $material['videos'] = [];
                     }
                 } else {
@@ -361,7 +459,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
         
     } catch (Exception $e) {
-        error_log("❌ ERRO GERAL na criação de rotina: " . $e->getMessage());
         setFlash('error', 'Não foi possível criar a rotina.');
         $returnTo = $_POST['return_to'] ?? 'criar-rotina.php';
         header('Location: ' . $returnTo, true, 303);

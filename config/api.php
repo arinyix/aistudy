@@ -21,11 +21,18 @@ class OpenAIService {
         
         // Verificar se a chave está definida
         if (empty($this->api_key) || $this->api_key === '' || strpos($this->api_key, 'sua-chave') !== false) {
-            error_log("ERRO: Chave da API OpenAI não está configurada corretamente!");
             throw new Exception('Chave da API OpenAI não definida. Por favor, configure OPENAI_API_KEY no arquivo .env');
         }
         
-        error_log("API Key carregada (primeiros 10 chars): " . substr($this->api_key, 0, 10) . "...");
+        // Verificar se a URL está definida e é válida
+        if (empty($this->api_url) || !filter_var($this->api_url, FILTER_VALIDATE_URL)) {
+            throw new Exception('URL da API OpenAI inválida. Verifique OPENAI_API_URL no arquivo .env');
+        }
+        
+        // Verificar se cURL está disponível
+        if (!function_exists('curl_init')) {
+            throw new Exception('Extensão cURL não está habilitada. Habilite a extensão curl no PHP.');
+        }
     }
     
     public function generateStudyPlan($tema, $nivel, $tempoDiario, $diasDisponiveis, $horario) {
@@ -245,19 +252,103 @@ class OpenAIService {
         $diasDisponiveis = $dadosConcurso['dias_disponiveis'] ?? [];
         $horario = $dadosConcurso['horario_disponivel'] ?? '09:00';
         $dificuldades = $dadosConcurso['dificuldades'] ?? '';
-        $pesosDisciplinas = trim($dadosConcurso['pesos_disciplinas'] ?? '');
 
-        // Número de dias por nível (coerente com ENEM/geral)
-        $diasPorNivel = [
-            'iniciante' => 90,
-            'intermediario' => 120,
-            'avancado' => 60
-        ];
+        // Buscar vídeos educacionais reais do YouTube (MESMO PADRÃO DOS OUTROS MÉTODOS)
+        require_once 'classes/YouTubeService.php';
+        $youtubeService = new YouTubeService();
+        $videos = $youtubeService->getEducationalVideos($tipoConcurso, $nivel, 3);
+        
+        // Número de dias por nível
+        $diasPorNivel = [ 'iniciante' => 90, 'intermediario' => 120, 'avancado' => 60 ];
         $totalDias = $diasPorNivel[$nivel] ?? 120;
+        
+        // Preparar vídeos disponíveis para o ChatGPT (MESMO PADRÃO DOS OUTROS MÉTODOS)
+        $videosDisponiveis = json_encode($videos);
 
-        $prompt = "Você é um planejador de estudos especializado em concursos públicos no Brasil.\n\nCrie um PLANO DE ESTUDOS semanal em formato JSON estruturado, com as informações a seguir:\n\n- Tema/Área: {$tipoConcurso}\n- Banca principal: {$banca}\n- Nível atual: {$nivel}\n- Horas disponíveis por dia: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)\n- Dias da semana disponíveis: " . implode(', ', $diasDisponiveis) . "\n- Horário preferido: {$horario}\n- Dificuldades principais: " . ($dificuldades ?: 'Não especificadas') . "\n\nRegras específicas para Concurso:\n1. Foque no estilo da banca {$banca} (enunciados, pegadinhas, doutrina/jurisprudência quando apropriado).\n2. Ciclo de estudo por tarefa: teoria → questões da banca {$banca} → revisão.\n3. Atribua mais tempo para tópicos tradicionalmente mais cobrados (use pesos se fornecidos: {$pesosDisciplinas}).\n4. Use títulos de tarefas ESPECÍFICOS (nunca 'Aula X' ou 'Dia X').\n\nCRIE EXATAMENTE {$totalDias} DIAS DE ESTUDO:\n- 1 a 3 tarefas por dia, apropriadas ao nível {$nivel}.\n- Inclua momentos de revisão espaçada.\n- Cada tarefa deve conter material (vídeos/textos/exercícios).\n\nRetorne um JSON com a seguinte estrutura EXATA (sem campos extras):\n{\n    'titulo': 'Plano Concurso - {$tipoConcurso}',\n    'descricao': 'Plano de {$totalDias} dias para {$tipoConcurso} (banca {$banca})',\n    'dias': [\n        {\n            'dia': 1,\n            'tarefas': [\n                {\n                    'titulo': 'Título específico do tópico (ex: Princípios do Direito Administrativo)',\n                    'descricao': 'Descrição objetiva do que será estudado',\n                    'material': {\n                        'videos': [],\n                        'textos': ['Livro/Artigo/Manual'],\n                        'exercicios': ['Lista de questões da banca {$banca}']\n                    }\n                }\n            ]\n        }\n    ]\n}\n\nREGRAS DE ESTRUTURA (OBRIGATÓRIO):\n- Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios.\n- NUNCA use campos diferentes.\n- Títulos devem ser sempre preenchidos e específicos.\n- Os dias DEVEM começar em 1 (nunca 0).\n\nFORMATO DE RESPOSTA:\n- Retorne APENAS o JSON válido, SEM texto adicional.\n- NÃO use markdown code blocks.";
+        $prompt = "Você é um especialista em concursos públicos no Brasil. Crie um PLANO DE ESTUDOS COMPLETO em formato JSON para o concurso {$tipoConcurso} (banca {$banca}).
+        
+        CONTEXTO:
+        - Tema/Área: {$tipoConcurso}
+        - Banca: {$banca}
+        - Nível: {$nivel}
+        - Tempo diário: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)
+        - Dias disponíveis: " . implode(', ', $diasDisponiveis) . "
+        - Horário: {$horario}
+        - Dificuldades: " . ($dificuldades ?: 'Não especificadas') . "
+        
+        INSTRUÇÕES CRÍTICAS:
+        1. INFIRA automaticamente as disciplinas que caem em '{$tipoConcurso}' na banca '{$banca}'.
+        2. Crie EXATAMENTE {$totalDias} dias de estudo.
+        3. Cada dia deve ter 1-3 tarefas.
+        4. Cada tarefa DEVE ter título no formato: \"Disciplina: Subtema — [{$banca}]\"
+        5. Use subtemas REAIS e ESPECÍFICOS (ex: ICMS, Regência Verbal, Balanço Patrimonial, Atos Administrativos).
+        6. PROIBIDO usar títulos genéricos como 'Teoria aplicada', 'Questões da banca', 'Revisão guiada'.
+        7. Cada tarefa deve ser ESPECÍFICA e ÚNICA - não repita os mesmos subtemas.
+        
+        IMPORTANTE PARA OS VÍDEOS - LEIA COM ATENÇÃO:
+        - Você recebeu uma lista de vídeos reais do YouTube em JSON
+        - Use SOMENTE esses vídeos reais na resposta
+        - NÃO invente IDs de vídeo
+        - NÃO use IDs genéricos como 'video_id_especifico_para_este_topico'
+        - Use os dados EXATOS dos vídeos fornecidos
+        - Vídeos disponíveis: {$videosDisponiveis}
+        - Para cada tarefa, distribua os vídeos entre os dias
+        - Use até 3 vídeos por tarefa
+        - Se houver poucos vídeos, use cada vídeo em múltiplas tarefas se necessário
+        - NÃO crie IDs falsos, use os IDs REAIS dos vídeos fornecidos
+        
+        Retorne um JSON com a seguinte estrutura:
+        {
+            \"titulo\": \"Plano Concurso - {$tipoConcurso}\",
+            \"descricao\": \"Plano de {$totalDias} dias para {$tipoConcurso} (banca {$banca})\",
+            \"dias\": [
+                {
+                    \"dia\": 1,
+                    \"tarefas\": [
+                        {
+                            \"titulo\": \"Disciplina: Subtema — [{$banca}]\",
+                            \"descricao\": \"Descrição detalhada do que será estudado\",
+                            \"material\": {
+                                \"videos\": [
+                                    {
+                                        \"id\": \"ID_REAL_DO_VIDEO_AQUI\",
+                                        \"title\": \"TÍTULO_REAL_DO_VIDEO_AQUI\",
+                                        \"description\": \"Descrição real do vídeo\",
+                                        \"thumbnail\": \"URL_DA_THUMBNAIL_REAL\",
+                                        \"channel\": \"Nome do canal real\",
+                                        \"url\": \"https://www.youtube.com/watch?v=ID_REAL_DO_VIDEO_AQUI\"
+                                    }
+                                ],
+                                \"textos\": [\"Livro/Manual de Direito Administrativo\"],
+                                \"exercicios\": [\"Questões da {$banca} sobre Subtema\"]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        ⚠️⚠️⚠️ REGRAS OBRIGATÓRIAS ⚠️⚠️⚠️:
+        - Crie EXATAMENTE {$totalDias} dias de estudo
+        - Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios
+        - Dias começam em 1 (nunca 0)
+        - Títulos: \"Disciplina: Subtema — [{$banca}]\" (PROIBIDO: títulos genéricos)
+        - Use vídeos REAIS da lista fornecida - NÃO invente IDs
+        - Cada tarefa deve ser ESPECÍFICA e ÚNICA
+        - INFIRA as disciplinas baseado em {$tipoConcurso} e {$banca}
+        - Use subtemas REAIS e ESPECÍFICOS, não genéricos
+        
+        🔴🔴🔴 FORMATO DE RESPOSTA CRÍTICO 🔴🔴🔴:
+        - Retorne APENAS o JSON válido, SEM texto adicional antes ou depois
+        - NÃO use markdown code blocks (```json ou ```)
+        - NÃO adicione explicações, comentários ou texto antes do JSON
+        - NÃO adicione texto depois do JSON
+        - O JSON deve começar com chave de abertura e terminar com chave de fechamento
+        - Retorne APENAS o objeto JSON, nada mais, nada menos
+        - Use APENAS aspas duplas (\") para chaves e valores de string";
 
-        return $this->makeAPICall($prompt, 8000, 0.4);
+        // Usar mesmo padrão dos outros métodos (8000 tokens, temperatura padrão)
+        return $this->makeAPICall($prompt, 8000, 0.7, 'json');
     }
     
     public function generateSummaryPDF($topico, $nivel, $descricao) {
@@ -290,7 +381,7 @@ class OpenAIService {
         if ($mode === 'markdown') {
             $systemMessage = "Você é um assistente que retorna APENAS conteúdo em Markdown bem formatado (sem JSON). NÃO use blocos ```json, apenas Markdown puro com títulos, listas, etc.";
         } else {
-            $systemMessage = "Você é um assistente que retorna APENAS JSON válido. NUNCA adicione texto antes ou depois do JSON. NUNCA use markdown code blocks. Retorne APENAS o objeto JSON puro.";
+            $systemMessage = "Você é um assistente especializado em retornar APENAS JSON válido. REGRAS CRÍTICAS:\n1. Retorne SOMENTE o objeto JSON, nada mais.\n2. NUNCA adicione texto, explicações ou comentários antes ou depois do JSON.\n3. NUNCA use markdown code blocks (```json ou ```).\n4. O JSON deve começar EXATAMENTE com { e terminar EXATAMENTE com }.\n5. Use APENAS aspas duplas (\") para chaves e valores de string.\n6. NÃO adicione quebras de linha ou espaços antes do { ou depois do }.\n\nExemplo CORRETO: {\"chave\": \"valor\"}\nExemplo INCORRETO: ```json\n{\"chave\": \"valor\"}\n```\n\nSiga essas regras RIGOROSAMENTE.";
         }
         
         $data = [
@@ -304,51 +395,72 @@ class OpenAIService {
             'stream' => false
         ];
         
-        // response_format só faria sentido para JSON; manter desligado para segurança
-        // $data['response_format'] = ['type' => 'json_object'];
+        // NÃO forçar response_format para evitar HTTP 400 em alguns provedores/versões
+        // if ($mode === 'json') {
+        //     $data['response_format'] = ['type' => 'json_object'];
+        // }
         
         $headers = [
             'Content-Type: application/json',
             'Authorization: Bearer ' . $this->api_key
         ];
         
-        error_log("=== INICIANDO CHAMADA API ===");
-        error_log("URL: " . $this->api_url);
-        error_log("Model: " . $data['model']);
-        error_log("Max Tokens: " . $maxTokens);
-        
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $this->api_url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 180); // 3 minutos total
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 20); // 20 segundos para conectar
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'AIStudy/1.0');
-        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-        
-        error_log("Enviando requisição para API OpenAI...");
-        error_log("Tamanho do prompt: " . strlen($prompt) . " caracteres");
-        $startTime = microtime(true);
-        $response = curl_exec($ch);
-        $endTime = microtime(true);
-        $elapsedTime = round($endTime - $startTime, 2);
-        error_log("Tempo de resposta da API: " . $elapsedTime . " segundos");
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-        
-        error_log("HTTP Code: " . $httpCode);
-        
-        if ($curlError) {
-            error_log("Erro cURL: " . $curlError);
-            throw new Exception('Erro de conexão: ' . $curlError);
+        if ($ch === false) {
+            throw new Exception('Não foi possível inicializar cURL. Verifique se a extensão cURL está habilitada no PHP.');
         }
         
-        error_log("Resposta recebida (primeiros 200 chars): " . substr($response, 0, 200));
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $this->api_url,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($data),
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_TIMEOUT => 300, // 5 minutos total (aumentado)
+            CURLOPT_CONNECTTIMEOUT => 30, // 30 segundos para conectar (aumentado)
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_USERAGENT => 'AIStudy/1.0',
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_ENCODING => '', // Aceita compressão automática
+            CURLOPT_VERBOSE => false
+        ]);
+        
+        $response = curl_exec($ch);
+        
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+        
+        if ($curlError || $curlErrno !== 0) {
+            // Mensagens mais específicas baseadas no código de erro
+            $userMessage = 'Erro de conexão com a API.';
+            // Códigos de erro cURL (valores numéricos para compatibilidade)
+            $CURLE_COULDNT_CONNECT = defined('CURLE_COULDNT_CONNECT') ? CURLE_COULDNT_CONNECT : 7;
+            $CURLE_COULDNT_RESOLVE_HOST = defined('CURLE_COULDNT_RESOLVE_HOST') ? CURLE_COULDNT_RESOLVE_HOST : 6;
+            $CURLE_OPERATION_TIMEOUTED = defined('CURLE_OPERATION_TIMEOUTED') ? CURLE_OPERATION_TIMEOUTED : 28;
+            $CURLE_TIMEOUT = defined('CURLE_TIMEOUT') ? CURLE_TIMEOUT : 28;
+            $CURLE_SSL_CONNECT_ERROR = defined('CURLE_SSL_CONNECT_ERROR') ? CURLE_SSL_CONNECT_ERROR : 35;
+            
+            if ($curlErrno === $CURLE_COULDNT_CONNECT || $curlErrno === $CURLE_COULDNT_RESOLVE_HOST) {
+                $userMessage = 'Não foi possível conectar à API. Verifique sua conexão com a internet e a URL da API.';
+            } elseif ($curlErrno === $CURLE_OPERATION_TIMEOUTED || $curlErrno === $CURLE_TIMEOUT) {
+                $userMessage = 'Timeout na conexão com a API. A requisição demorou muito para responder. Tente novamente.';
+            } elseif ($curlErrno === $CURLE_SSL_CONNECT_ERROR) {
+                $userMessage = 'Erro SSL na conexão com a API.';
+            }
+            
+            curl_close($ch);
+            throw new Exception($userMessage . ' Detalhes: ' . $curlError);
+        }
+        
+        curl_close($ch);
+        
+        if ($response === false) {
+            throw new Exception('Resposta vazia da API. Verifique sua conexão e tente novamente.');
+        }
         
         if ($httpCode === 200) {
             $result = json_decode($response, true);
@@ -357,30 +469,8 @@ class OpenAIService {
                 throw new Exception('Erro ao decodificar JSON da API: ' . json_last_error_msg());
             }
             
-            // Verificar se a resposta foi truncada
-            if (isset($result['choices'][0]['finish_reason'])) {
-                $finishReason = $result['choices'][0]['finish_reason'];
-                if ($finishReason === 'length') {
-                    error_log("⚠️ AVISO: Resposta da API foi truncada (finish_reason: length). Considere aumentar max_tokens.");
-                }
-            }
-            
-            // Verificar uso de tokens
-            if (isset($result['usage'])) {
-                $tokensUsed = $result['usage']['total_tokens'] ?? 0;
-                $promptTokens = $result['usage']['prompt_tokens'] ?? 0;
-                $completionTokens = $result['usage']['completion_tokens'] ?? 0;
-                error_log("Tokens usados - Total: {$tokensUsed}, Prompt: {$promptTokens}, Completion: {$completionTokens}, Max: {$maxTokens}");
-                
-                // Se completion_tokens >= max_tokens, a resposta foi truncada
-                if ($completionTokens >= $maxTokens) {
-                    error_log("⚠️ AVISO: Resposta pode estar truncada (completion_tokens >= max_tokens)");
-                }
-            }
-            
             if (isset($result['choices'][0]['message']['content'])) {
                 $content = $result['choices'][0]['message']['content'];
-                error_log("Tamanho do conteúdo retornado: " . strlen($content) . " caracteres");
                 return $content;
             } else {
                 throw new Exception('Resposta inválida da API: ' . $response);
