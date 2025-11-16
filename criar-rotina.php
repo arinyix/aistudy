@@ -3,7 +3,8 @@
 ob_start();
 
 // Configurar timeouts e error reporting
-ini_set('display_errors', 0);
+// Habilitar exibição de erros temporariamente para debug
+ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 require_once 'config/database.php';
@@ -53,6 +54,7 @@ if ($_POST) {
             if ($routine_id) {
                 error_log("Rotina criada com sucesso! ID: {$routine_id}");
                 $plano_data = null;
+                $debugFile = null; // Inicializar variável
                 
                 // Tentar gerar plano com IA
                 try {
@@ -68,23 +70,217 @@ if ($_POST) {
                     
                     // Log para debug
                     error_log("Resposta da API (primeiros 500 chars): " . substr($plano, 0, 500));
+                    error_log("Tamanho total da resposta: " . strlen($plano) . " caracteres");
                     
+                    // Salvar resposta completa em arquivo temporário para debug
+                    $debugFile = __DIR__ . '/cache/api_response_' . time() . '.txt';
+                    if (!is_dir(__DIR__ . '/cache')) {
+                        mkdir(__DIR__ . '/cache', 0755, true);
+                    }
+                    file_put_contents($debugFile, $plano);
+                    error_log("Resposta completa salva em: " . $debugFile);
+                    
+                    // Função auxiliar para extrair JSON da resposta
+                    $plano_data = null;
+                    $jsonError = null;
+                    
+                    // Estratégia 1: Tentar decodificar diretamente
                     $plano_data = json_decode($plano, true);
-                    
-                    // Verificar erro de JSON
-                    if (json_last_error() !== JSON_ERROR_NONE) {
-                        error_log("Erro JSON: " . json_last_error_msg());
-                        error_log("Resposta completa: " . $plano);
-                        // Tentar extrair JSON da resposta
-                        preg_match('/\{.*\}/s', $plano, $matches);
-                        if (!empty($matches)) {
-                            $plano_data = json_decode($matches[0], true);
+                    if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
+                        error_log("✅ JSON decodificado com sucesso (estratégia 1: direto)");
+                    } else {
+                        $jsonError = json_last_error_msg();
+                        error_log("❌ Erro JSON (estratégia 1): " . $jsonError);
+                        
+                        // Estratégia 2: Remover markdown code blocks (```json ... ```)
+                        $planoLimpo = $plano;
+                        $planoLimpo = preg_replace('/```json\s*/i', '', $planoLimpo);
+                        $planoLimpo = preg_replace('/```\s*/', '', $planoLimpo);
+                        $planoLimpo = trim($planoLimpo);
+                        
+                        $plano_data = json_decode($planoLimpo, true);
+                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
+                            error_log("✅ JSON decodificado com sucesso (estratégia 2: removendo markdown)");
+                        } else {
+                            error_log("❌ Erro JSON (estratégia 2): " . json_last_error_msg());
+                            
+                            // Estratégia 3: Extrair JSON usando busca balanceada de chaves
+                            // Encontrar primeiro { e então encontrar o } correspondente balanceado
+                            $firstBrace = strpos($plano, '{');
+                            if ($firstBrace !== false) {
+                                $braceCount = 0;
+                                $jsonStart = $firstBrace;
+                                $jsonEnd = $firstBrace;
+                                
+                                for ($i = $firstBrace; $i < strlen($plano); $i++) {
+                                    if ($plano[$i] === '{') {
+                                        $braceCount++;
+                                    } elseif ($plano[$i] === '}') {
+                                        $braceCount--;
+                                        if ($braceCount === 0) {
+                                            $jsonEnd = $i;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if ($braceCount === 0 && $jsonEnd > $jsonStart) {
+                                    $jsonStr = substr($plano, $jsonStart, $jsonEnd - $jsonStart + 1);
+                                    $plano_data = json_decode($jsonStr, true);
+                                    if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
+                                        error_log("✅ JSON decodificado com sucesso (estratégia 3: balanceamento de chaves)");
+                                    } else {
+                                        error_log("❌ Erro JSON (estratégia 3): " . json_last_error_msg());
+                                    }
+                                }
+                            }
+                            
+                            // Estratégia 4: Tentar encontrar JSON entre colchetes ou após palavras-chave
+                            if (!$plano_data) {
+                                // Procurar por padrões como "```json" ou "```" seguido de JSON
+                                if (preg_match('/(?:```json\s*)?(\{.*\})(?:\s*```)?/s', $plano, $matches)) {
+                                    $jsonStr = $matches[1];
+                                    // Limpar possíveis caracteres de escape ou formatação
+                                    $jsonStr = preg_replace('/^[^\{\[]*/', '', $jsonStr); // Remove texto antes de { ou [
+                                    $jsonStr = preg_replace('/[^\}\]]*$/', '', $jsonStr); // Remove texto depois de } ou ]
+                                    
+                                    $plano_data = json_decode($jsonStr, true);
+                                    if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
+                                        error_log("✅ JSON decodificado com sucesso (estratégia 4: limpeza avançada)");
+                                    } else {
+                                        error_log("❌ Erro JSON (estratégia 4): " . json_last_error_msg());
+                                    }
+                                }
+                            }
+                            
+                            // Estratégia 5: Tentar encontrar e extrair apenas o conteúdo JSON válido
+                            if (!$plano_data) {
+                                // Procurar pelo primeiro { e último } balanceado
+                                $firstBrace = strpos($plano, '{');
+                                if ($firstBrace !== false) {
+                                    $lastBrace = strrpos($plano, '}');
+                                    if ($lastBrace !== false && $lastBrace > $firstBrace) {
+                                        $jsonStr = substr($plano, $firstBrace, $lastBrace - $firstBrace + 1);
+                                        $plano_data = json_decode($jsonStr, true);
+                                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
+                                            error_log("✅ JSON decodificado com sucesso (estratégia 5: primeira/última chave)");
+                                        } else {
+                                            error_log("❌ Erro JSON (estratégia 5): " . json_last_error_msg());
+                                            error_log("JSON extraído (primeiros 500 chars): " . substr($jsonStr, 0, 500));
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Estratégia 6: Limpeza agressiva e correção de JSON comum
+                            if (!$plano_data) {
+                                // Extrair JSON novamente com limpeza mais agressiva
+                                $firstBrace = strpos($plano, '{');
+                                if ($firstBrace !== false) {
+                                    $lastBrace = strrpos($plano, '}');
+                                    if ($lastBrace !== false && $lastBrace > $firstBrace) {
+                                        $jsonStr = substr($plano, $firstBrace, $lastBrace - $firstBrace + 1);
+                                        
+                                        // Limpeza cuidadosa
+                                        // Remover apenas caracteres de controle invisíveis (preservando UTF-8)
+                                        $jsonStr = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $jsonStr);
+                                        
+                                        // Tentar corrigir vírgulas finais antes de } ou ]
+                                        // Mas apenas se não estiver dentro de uma string
+                                        $jsonStr = preg_replace('/,\s*}/', '}', $jsonStr);
+                                        $jsonStr = preg_replace('/,\s*]/', ']', $jsonStr);
+                                        
+                                        // Remover BOM se existir
+                                        $jsonStr = ltrim($jsonStr, "\xEF\xBB\xBF");
+                                        
+                                        $plano_data = json_decode($jsonStr, true);
+                                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
+                                            error_log("✅ JSON decodificado com sucesso (estratégia 6: limpeza agressiva)");
+                                        } else {
+                                            error_log("❌ Erro JSON (estratégia 6): " . json_last_error_msg());
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Estratégia 7: Tentar usar balanceamento mais inteligente considerando strings
+                            if (!$plano_data) {
+                                $firstBrace = strpos($plano, '{');
+                                if ($firstBrace !== false) {
+                                    $braceCount = 0;
+                                    $inString = false;
+                                    $escapeNext = false;
+                                    $jsonStart = $firstBrace;
+                                    $jsonEnd = $firstBrace;
+                                    
+                                    for ($i = $firstBrace; $i < strlen($plano); $i++) {
+                                        $char = $plano[$i];
+                                        
+                                        if ($escapeNext) {
+                                            $escapeNext = false;
+                                            continue;
+                                        }
+                                        
+                                        if ($char === '\\') {
+                                            $escapeNext = true;
+                                            continue;
+                                        }
+                                        
+                                        if ($char === '"' && !$escapeNext) {
+                                            $inString = !$inString;
+                                            continue;
+                                        }
+                                        
+                                        if (!$inString) {
+                                            if ($char === '{') {
+                                                $braceCount++;
+                                            } elseif ($char === '}') {
+                                                $braceCount--;
+                                                if ($braceCount === 0) {
+                                                    $jsonEnd = $i;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if ($braceCount === 0 && $jsonEnd > $jsonStart) {
+                                        $jsonStr = substr($plano, $jsonStart, $jsonEnd - $jsonStart + 1);
+                                        $plano_data = json_decode($jsonStr, true);
+                                        if (json_last_error() === JSON_ERROR_NONE && $plano_data !== null) {
+                                            error_log("✅ JSON decodificado com sucesso (estratégia 7: balanceamento inteligente)");
+                                        } else {
+                                            error_log("❌ Erro JSON (estratégia 7): " . json_last_error_msg());
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     
                     // Debug: verificar se a API retornou dados válidos
                     if (!$plano_data) {
-                        throw new Exception('API retornou dados inválidos. JSON error: ' . json_last_error_msg());
+                        $finalError = json_last_error() !== JSON_ERROR_NONE ? json_last_error_msg() : 'Dados retornados são null';
+                        
+                        // Verificar se o JSON está truncado (não termina com })
+                        $lastChar = trim($plano);
+                        $lastChar = substr($lastChar, -1);
+                        $isTruncated = ($lastChar !== '}');
+                        
+                        error_log("❌ FALHA TOTAL ao decodificar JSON. Último erro: " . $finalError);
+                        error_log("Resposta completa (últimos 1000 chars): " . substr($plano, -1000));
+                        error_log("JSON parece truncado: " . ($isTruncated ? 'SIM' : 'NÃO'));
+                        
+                        $errorMessage = 'API retornou dados inválidos. JSON error: ' . $finalError . '. ';
+                        if ($isTruncated) {
+                            $errorMessage .= 'A resposta parece estar truncada (incompleta). Isso pode acontecer se o plano for muito grande. ';
+                            $errorMessage .= 'Tente criar um plano com menos dias ou um tema mais simples. ';
+                        }
+                        if ($debugFile && file_exists($debugFile)) {
+                            $errorMessage .= 'A resposta completa foi salva em: ' . basename($debugFile) . ' na pasta cache/. ';
+                        }
+                        $errorMessage .= 'Verifique os logs do servidor para mais detalhes.';
+                        throw new Exception($errorMessage);
                     }
                 } catch (Exception $e) {
                     // Log do erro completo
@@ -104,6 +300,9 @@ if ($_POST) {
                         }
                     }
                     
+                    // Garantir que plano_data é null para não continuar o processamento
+                    $plano_data = null;
+                    
                     // Mostrar erro ao usuário
                     $errorMsg = htmlspecialchars($e->getMessage());
                     if (strpos($errorMsg, 'timeout') !== false || strpos($errorMsg, 'timed out') !== false) {
@@ -119,19 +318,37 @@ if ($_POST) {
                             <br>
                             <strong>Solução:</strong> Tente novamente em alguns minutos. Se o problema persistir, verifique sua conexão com a internet.
                         </div>';
+                    } elseif (strpos($errorMsg, 'Chave da API') !== false || strpos($errorMsg, 'API Key') !== false) {
+                        $message = '<div class="alert alert-danger">
+                            <strong>Erro de Configuração da API:</strong> ' . $errorMsg . '
+                            <br><br>
+                            <strong>Como resolver:</strong>
+                            <ol>
+                                <li>Verifique se o arquivo <code>.env</code> existe na raiz do projeto</li>
+                                <li>Confirme se a chave <code>OPENAI_API_KEY</code> está configurada corretamente</li>
+                                <li>A chave deve começar com <code>sk-</code></li>
+                                <li>Verifique os logs do servidor para mais detalhes</li>
+                            </ol>
+                        </div>';
                     } else {
                         $message = '<div class="alert alert-danger">
                             <strong>Erro ao gerar plano com IA:</strong> ' . $errorMsg . '
                             <br><br>
                             <strong>Tente novamente mais tarde.</strong>
+                            <br><small>Verifique os logs do servidor para mais detalhes.</small>
                         </div>';
                     }
                 }
                 
-                // Debug: verificar estrutura do plano
+                // Debug: verificar estrutura do plano (só se não houve exceção)
                 if (!$plano_data) {
-                    error_log("Plano vazio ou null");
-                    $message = '<div class="alert alert-danger">Erro: Plano de estudos não foi gerado. Verifique se a API está funcionando.</div>';
+                    if (!isset($message)) {
+                        error_log("Plano vazio ou null - nenhuma exceção foi lançada");
+                        $message = '<div class="alert alert-danger">
+                            Erro: Plano de estudos não foi gerado. Verifique se a API está funcionando.
+                            <br><small>Verifique os logs do servidor para mais detalhes sobre o erro.</small>
+                        </div>';
+                    }
                 } elseif (!isset($plano_data['dias'])) {
                     error_log("Campo 'dias' não encontrado no plano");
                     error_log("Estrutura do plano: " . print_r($plano_data, true));
@@ -192,7 +409,8 @@ if ($_POST) {
                             try {
                                 require_once 'classes/YouTubeService.php';
                                 $youtubeService = new YouTubeService();
-                                $topico = $task->titulo; // Usar o título exato da tarefa como query
+                                // Combinar tema geral com título específico da tarefa para melhor precisão na busca
+                                $topico = $tema . ': ' . $task->titulo;
                                 
                                 // Buscar vídeos específicos para ESTE tópico exato
                                 // Adicionar timeout para evitar travamento

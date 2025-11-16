@@ -179,9 +179,20 @@ class OpenAIService {
         - *** CRÍTICO: NÃO REPITA TÓPICOS - cada dia deve ser ÚNICO ***
         - *** CADA TÓPICO DEVE SER DIFERENTE DOS OUTROS TÓPICOS ***
         - *** USE ESPECIFICIDADE - Seja ESPECÍFICO nos títulos, não genérico ***
-        - *** USE OS VÍDEOS REAIS FORNECIDOS - NÃO INVENTE IDs ***";
+        - *** USE OS VÍDEOS REAIS FORNECIDOS - NÃO INVENTE IDs ***
+        
+        🔴🔴🔴 FORMATO DE RESPOSTA CRÍTICO 🔴🔴🔴:
+        - Retorne APENAS o JSON válido, SEM texto adicional antes ou depois
+        - NÃO use markdown code blocks (```json ou ```)
+        - NÃO adicione explicações, comentários ou texto antes do JSON
+        - NÃO adicione texto depois do JSON
+        - O JSON deve começar com chave de abertura e terminar com chave de fechamento
+        - Retorne APENAS o objeto JSON, nada mais, nada menos
+        - Exemplo CORRETO: Um objeto JSON válido começando com chave de abertura
+        - Exemplo INCORRETO: Adicionar texto antes ou depois do JSON, ou usar markdown";
 
-        return $this->makeAPICall($prompt, 4000);
+        // Aumentar tokens para garantir resposta completa (8000 tokens para planos grandes)
+        return $this->makeAPICall($prompt, 8000);
     }
     
     public function generateSummaryPDF($topico, $nivel, $descricao) {
@@ -210,9 +221,16 @@ class OpenAIService {
     }
     
     private function makeAPICall($prompt, $maxTokens = 2000) {
+        // Adicionar instrução de sistema para garantir formato JSON
+        $systemMessage = "Você é um assistente que retorna APENAS JSON válido. NUNCA adicione texto antes ou depois do JSON. NUNCA use markdown code blocks. Retorne APENAS o objeto JSON puro.";
+        
         $data = [
             'model' => 'gpt-4o-mini', // Modelo mais rápido e barato
             'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => $systemMessage
+                ],
                 [
                     'role' => 'user',
                     'content' => $prompt
@@ -222,6 +240,10 @@ class OpenAIService {
             'temperature' => 0.7,
             'stream' => false // Garantir que não use streaming
         ];
+        
+        // Tentar adicionar response_format apenas se o modelo suportar (gpt-4o-mini pode não suportar)
+        // Comentado por enquanto para evitar erros
+        // $data['response_format'] = ['type' => 'json_object'];
         
         $headers = [
             'Content-Type: application/json',
@@ -273,8 +295,31 @@ class OpenAIService {
                 throw new Exception('Erro ao decodificar JSON da API: ' . json_last_error_msg());
             }
             
+            // Verificar se a resposta foi truncada
+            if (isset($result['choices'][0]['finish_reason'])) {
+                $finishReason = $result['choices'][0]['finish_reason'];
+                if ($finishReason === 'length') {
+                    error_log("⚠️ AVISO: Resposta da API foi truncada (finish_reason: length). Considere aumentar max_tokens.");
+                }
+            }
+            
+            // Verificar uso de tokens
+            if (isset($result['usage'])) {
+                $tokensUsed = $result['usage']['total_tokens'] ?? 0;
+                $promptTokens = $result['usage']['prompt_tokens'] ?? 0;
+                $completionTokens = $result['usage']['completion_tokens'] ?? 0;
+                error_log("Tokens usados - Total: {$tokensUsed}, Prompt: {$promptTokens}, Completion: {$completionTokens}, Max: {$maxTokens}");
+                
+                // Se completion_tokens >= max_tokens, a resposta foi truncada
+                if ($completionTokens >= $maxTokens) {
+                    error_log("⚠️ AVISO: Resposta pode estar truncada (completion_tokens >= max_tokens)");
+                }
+            }
+            
             if (isset($result['choices'][0]['message']['content'])) {
-                return $result['choices'][0]['message']['content'];
+                $content = $result['choices'][0]['message']['content'];
+                error_log("Tamanho do conteúdo retornado: " . strlen($content) . " caracteres");
+                return $content;
             } else {
                 throw new Exception('Resposta inválida da API: ' . $response);
             }

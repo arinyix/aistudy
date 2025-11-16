@@ -1,0 +1,489 @@
+{
+    "titulo": "Aprender computacao grafica - Nível intermediario",
+    "descricao": "Plano de 21 dias para computacao grafica no nível intermediario",
+    "dias": [
+        {
+            "dia": 1,
+            "tarefas": [
+                {
+                    "titulo": "Métodos de Renderização em Tempo Real",
+                    "descricao": "Estudo sobre os diferentes métodos de renderização utilizados em jogos e aplicações em tempo real.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Livro: Real-Time Rendering - Capítulo 3"],
+                        "exercicios": ["Exercício 1: Comparar métodos de renderização", "Exercício 2: Criar um gráfico de desempenho"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 2,
+            "tarefas": [
+                {
+                    "titulo": "Sombreamento e Iluminação em Gráficos 3D",
+                    "descricao": "Exploração das técnicas de sombreamento e iluminação para melhorar a aparência visual em gráficos 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Artigo: Techniques for Realistic Lighting in Computer Graphics"],
+                        "exercicios": ["Exercício 1: Implementar sombras em um modelo 3D", "Exercício 2: Testar diferentes fontes de luz"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 3,
+            "tarefas": [
+                {
+                    "titulo": "Texturização e Mapeamento UV",
+                    "descricao": "Estudo sobre técnicas de texturização e como aplicar mapas UV em modelos 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Livro: 3D Game Engine Architecture - Capítulo 6"],
+                        "exercicios": ["Exercício 1: Criar um mapeamento UV para um modelo 3D", "Exercício 2: Aplicar texturas a diferentes superfícies"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 4,
+            "tarefas": [
+                {
+                    "titulo": "Animação de Objetos em Gráficos 3D",
+                    "descricao": "Análise dos princípios de animação aplicados a objetos em ambientes 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Artigo: Principles of 3D Animation"],
+                        "exercicios": ["Exercício 1: Criar uma animação simples de um objeto 3D", "Exercício 2: Experimentar com diferentes técnicas de animação"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 5,
+            "tarefas": [
+                {
+                    "titulo": "Redução de Polígonos e Otimização de Modelos",
+                    "descricao": "Estudo sobre técnicas de redução de polígonos e otimização para melhorar desempenho em tempo real.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Livro: Game Engine Design and Implementation - Capítulo 5"],
+                        "exercicios": ["Exercício 1: Aplicar técnicas de redução de polígonos em um modelo", "Exercício 2: Medir o impacto na performance"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 6,
+            "tarefas": [
+                {
+                    "titulo": "Shaders: Tipos e Aplicações",
+                    "descricao": "Exploração dos diferentes tipos de shaders e suas aplicações em gráficos 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: Understanding Shaders: A Guide for Beginners"],
+                        "exercicios": ["Exercício 1: Criar um shader básico para iluminação", "Exercício 2: Testar diferentes efeitos com shaders"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 7,
+            "tarefas": [
+                {
+                    "titulo": "Modelagem Procedural em Gráficos 3D",
+                    "descricao": "Introdução à modelagem procedural e suas aplicações em ambientes 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Livro: Procedural Content Generation in Games - Capítulo 2"],
+                        "exercicios": ["Exercício 1: Criar um objeto usando modelagem procedural", "Exercício 2: Comparar com modelos tradicionais"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 8,
+            "tarefas": [
+                {
+                    "titulo": "Técnicas de Animação Facial",
+                    "descricao": "Estudo sobre técnicas utilizadas para animação facial em personagens.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: Facial Animation Techniques in 3D"],
+                        "exercicios": ["Exercício 1: Criar uma animação facial básica", "Exercício 2: Testar diferentes expressões"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 9,
+            "tarefas": [
+                {
+                    "titulo": "Física para Animação em Jogos",
+                    "descricao": "Estudo dos princípios de física aplicados à animação em jogos.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Livro: Physics for Game Developers - Capítulo 4"],
+                        "exercicios": ["Exercício 1: Simular a física de um objeto em queda", "Exercício 2: Implementar colisões"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 10,
+            "tarefas": [
+                {
+                    "titulo": "Simulação de Fluidos em Gráficos 3D",
+                    "descricao": "Exploração das técnicas de simulação de fluidos e como integrá-las em gráficos 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: Fluid Simulation Techniques"],
+                        "exercicios": ["Exercício 1: Simular um corpo de água em um ambiente 3D", "Exercício 2: Testar diferentes métodos de simulação"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 11,
+            "tarefas": [
+                {
+                    "titulo": "Integração de Realidade Aumentada em Jogos",
+                    "descricao": "Estudo sobre como integrar técnicas de realidade aumentada em jogos e experiências interativas.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Livro: Augmented Reality: Principles and Practice"],
+                        "exercicios": ["Exercício 1: Criar uma aplicação simples de RA", "Exercício 2: Integrar RA em um modelo 3D"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 12,
+            "tarefas": [
+                {
+                    "titulo": "Desenvolvimento de Jogos 2D com Gráficos 3D",
+                    "descricao": "Exploração de técnicas para desenvolver jogos 2D utilizando gráficos 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: 2D Games with 3D Graphics"],
+                        "exercicios": ["Exercício 1: Criar um jogo 2D simples com elementos 3D", "Exercício 2: Testar a interação entre gráficos 2D e 3D"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 13,
+            "tarefas": [
+                {
+                    "titulo": "Estudo de Algoritmos de Colisão",
+                    "descricao": "Análise e implementação de algoritmos de colisão em ambientes 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Livro: Real-Time Collision Detection"],
+                        "exercicios": ["Exercício 1: Implementar um algoritmo de colisão simples", "Exercício 2: Testar diferentes formas de colisão"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 14,
+            "tarefas": [
+                {
+                    "titulo": "Desenvolvimento de Personagens para Jogos",
+                    "descricao": "Técnicas para o desenvolvimento de personagens em jogos, incluindo modelagem e animação.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: Character Development in Games"],
+                        "exercicios": ["Exercício 1: Criar um personagem básico em 3D", "Exercício 2: Animar o personagem em uma cena"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 15,
+            "tarefas": [
+                {
+                    "titulo": "Efeitos Visuais em Gráficos 3D",
+                    "descricao": "Estudo sobre a criação e implementação de efeitos visuais em gráficos 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Livro: Visual Effects in Computer Graphics"],
+                        "exercicios": ["Exercício 1: Criar um efeito visual simples", "Exercício 2: Integrar efeitos em uma cena 3D"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 16,
+            "tarefas": [
+                {
+                    "titulo": "Aplicações de Inteligência Artificial em Jogos",
+                    "descricao": "Exploração do uso de IA para melhorar a jogabilidade e a interação em jogos.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: AI Techniques in Game Development"],
+                        "exercicios": ["Exercício 1: Implementar uma IA básica para um personagem", "Exercício 2: Testar diferentes técnicas de IA"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 17,
+            "tarefas": [
+                {
+                    "titulo": "Criação de Ambientes Interativos",
+                    "descricao": "Estudo sobre como criar ambientes interativos em jogos e aplicações.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Livro: Creating Interactive 3D Environments"],
+                        "exercicios": ["Exercício 1: Criar um ambiente interativo básico", "Exercício 2: Implementar interações no ambiente"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 18,
+            "tarefas": [
+                {
+                    "titulo": "Desenvolvimento de UI em Jogos 3D",
+                    "descricao": "Estudo sobre a criação de interfaces de usuário em jogos 3D.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: UI Design in 3D Games"],
+                        "exercicios": ["Exercício 1: Criar uma interface básica em um jogo 3D", "Exercício 2: Testar a usabilidade da interface"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 19,
+            "tarefas": [
+                {
+                    "titulo": "Integração de Som em Ambientes 3D",
+                    "descricao": "Estudo sobre como integrar som em ambientes gráficos 3D para melhorar a experiência do usuário.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Livro: Sound Design for 3D Games"],
+                        "exercicios": ["Exercício 1: Integrar efeitos sonoros em um ambiente 3D", "Exercício 2: Testar a sincronização do som com a ação"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 20,
+            "tarefas": [
+                {
+                    "titulo": "Análise e Melhoria de Performance em Jogos",
+                    "descricao": "Estudo sobre como analisar e melhorar a performance de jogos utilizando técnicas de otimização.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "OExbjBKZtUA",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | O que \u00e9? Biblioteca OpenGL e Aplica\u00e7\u00f5es",
+                                "description": "Quer come\u00e7ar ou impulsionar sua carreira em TI? Meu guia pode te ajudar: https://bit.ly/guiacanalti Você sabe o que é ...",
+                                "thumbnail": "https://i.ytimg.com/vi/OExbjBKZtUA/mqdefault.jpg",
+                                "channel": "Canal TI",
+                                "url": "https://www.youtube.com/watch?v=OExbjBKZtUA"
+                            }
+                        ],
+                        "textos": ["Artigo: Game Performance Optimization Techniques"],
+                        "exercicios": ["Exercício 1: Analisar a performance de um jogo em execução", "Exercício 2: Implementar técnicas de otimização"]
+                    }
+                }
+            ]
+        },
+        {
+            "dia": 21,
+            "tarefas": [
+                {
+                    "titulo": "Tendências Futuras em Computação Gráfica",
+                    "descricao": "Discussão sobre as tendências futuras e inovações na área de computação gráfica.",
+                    "material": {
+                        "videos": [
+                            {
+                                "id": "-4_OU95nKuU",
+                                "title": "Computa\u00e7\u00e3o Gr\u00e1fica | Nerdologia Tech",
+                                "description": "ESTE NERDOLOGIA É UM OFERECIMENTO DA ALURA Acesse e aproveite a promoção da Alura com o Nerdologia Tech: ...",
+                                "thumbnail": "https://i.ytimg.com/vi/-4_OU95nKuU/mqdefault.jpg",
+                                "channel": "Nerdologia",
+                                "url": "https://www.youtube.com/watch?v=-4_OU95nKuU"
+                            }
+                        ],
+                        "textos": ["Artigo: Future Trends in Computer Graphics"],
+                        "exercicios": ["Exercício 1: Pesquisar sobre inovações recentes em computação gráfica", "Exercício 2: Escrever um relatório sobre as tendências identificadas"]
+                    }
+                }
+            ]
+        }
+    ]
+}
