@@ -23,15 +23,13 @@ if (!$plano) {
 
 // Se o plano for gratuito, ativar diretamente
 if ($plano['preco_mensal'] == 0) {
-    $gateway = new PaymentGateway();
-    $result = $gateway->createPaymentOrder($user['id'], $plano['id'], 0);
-    
-    // Criar assinatura gratuita
+    // Criar assinatura gratuita diretamente (sem passar pelo Stripe)
+    $external_id = 'FREE_' . time() . '_' . $user['id'];
     $assinatura_id = $planService->createSubscription(
         $user['id'],
         $plano['id'],
         'free',
-        $result['external_id']
+        $external_id
     );
     
     if ($assinatura_id) {
@@ -44,29 +42,40 @@ if ($plano['preco_mensal'] == 0) {
 
 $message = '';
 if ($_POST) {
-    // Processar pagamento
-    $gateway = new PaymentGateway('mercado_pago');
-    $result = $gateway->createPaymentOrder($user['id'], $plano['id'], $plano['preco_mensal']);
-    
-    if ($result['success']) {
-        // Criar assinatura pendente
-        $assinatura_id = $planService->createSubscription(
-            $user['id'],
-            $plano['id'],
-            'mercado_pago',
-            $result['external_id'],
-            ['valor' => $plano['preco_mensal']]
-        );
+    try {
+        // Processar pagamento com Stripe
+        $metodo = $_POST['metodo_pagamento'] ?? 'card'; // card, pix, boleto
+        $gateway = new PaymentGateway('stripe');
+        $result = $gateway->createPaymentOrder($user['id'], $plano['id'], $plano['preco_mensal'], $metodo);
         
-        if ($assinatura_id) {
-            // Redirecionar para página de pagamento (ou sucesso se for teste)
-            header('Location: ' . $result['payment_url']);
-            exit;
+        if ($result['success']) {
+            // Criar assinatura pendente
+            $assinatura_id = $planService->createSubscription(
+                $user['id'],
+                $plano['id'],
+                'stripe',
+                $result['session_id'],
+                [
+                    'valor' => $plano['preco_mensal'],
+                    'metodo' => $metodo,
+                    'session_id' => $result['session_id']
+                ]
+            );
+            
+            if ($assinatura_id) {
+                // Redirecionar para checkout do Stripe
+                header('Location: ' . $result['payment_url']);
+                exit;
+            } else {
+                $message = '<div class="alert alert-danger">Erro ao criar assinatura. Tente novamente.</div>';
+            }
         } else {
-            $message = '<div class="alert alert-danger">Erro ao criar assinatura. Tente novamente.</div>';
+            $errorMsg = $result['message'] ?? 'Erro ao processar pagamento. Tente novamente.';
+            $message = '<div class="alert alert-danger">' . htmlspecialchars($errorMsg) . '</div>';
         }
-    } else {
-        $message = '<div class="alert alert-danger">Erro ao processar pagamento. Tente novamente.</div>';
+    } catch (Exception $e) {
+        error_log("Erro no checkout: " . $e->getMessage());
+        $message = '<div class="alert alert-danger">Erro ao processar pagamento: ' . htmlspecialchars($e->getMessage()) . '</div>';
     }
 }
 ?>
@@ -119,13 +128,35 @@ if ($_POST) {
                             <form method="POST">
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Modo de Teste:</strong> Por enquanto, o pagamento é processado em modo de teste. 
-                                    Em produção, você será redirecionado para o gateway de pagamento.
+                                    <strong>Modo de Teste:</strong> Você será redirecionado para o Stripe Checkout. 
+                                    Use cartões de teste ou PIX para simular o pagamento.
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Método de Pagamento:</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="metodo_pagamento" id="metodo_card" value="card" checked>
+                                        <label class="form-check-label" for="metodo_card">
+                                            <i class="fas fa-credit-card me-2"></i>Cartão de Crédito ou PIX
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="metodo_pagamento" id="metodo_pix" value="pix">
+                                        <label class="form-check-label" for="metodo_pix">
+                                            <i class="fas fa-qrcode me-2"></i>Apenas PIX
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Valor de Teste:</strong> R$ <?php echo number_format($plano['preco_mensal'], 2, ',', '.'); ?> 
+                                    (valor irrisório para testes)
                                 </div>
                                 
                                 <div class="d-grid gap-2">
                                     <button type="submit" class="btn btn-primary btn-lg">
-                                        <i class="fas fa-credit-card me-2"></i>Finalizar Pagamento
+                                        <i class="fas fa-credit-card me-2"></i>Finalizar Pagamento com Stripe
                                     </button>
                                     <a href="planos.php" class="btn btn-outline-secondary">
                                         <i class="fas fa-arrow-left me-2"></i>Voltar para Planos

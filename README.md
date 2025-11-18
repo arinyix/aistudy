@@ -43,8 +43,11 @@ Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e *
 
 ### **Sistema Necessário:**
 - **XAMPP** (Apache, MySQL, PHP 7.4+) - [Baixar aqui](https://www.apachefriends.org/)
+- **Composer** (Gerenciador de dependências PHP) - [Baixar aqui](https://getcomposer.org/download/)
 - **Chave de API da OpenAI** (ChatGPT) - [Obter aqui](https://platform.openai.com/api-keys)
 - **Chave de API do YouTube Data API v3** - [Obter aqui](https://console.cloud.google.com/)
+- **Chave de API do Stripe** (Para pagamentos) - [Obter aqui](https://dashboard.stripe.com/test/apikeys)
+- **Stripe CLI** (Para webhooks locais - opcional) - [Instruções abaixo](#-configuração-do-stripe-cli)
 - **Navegador web moderno** (Chrome, Firefox, Safari, Edge)
 - **Conexão com internet** (para APIs externas e CDNs)
 
@@ -61,12 +64,18 @@ Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e *
 - cURL
 - JSON
 
+#### **📦 Bibliotecas PHP via Composer:**
+- **Stripe PHP SDK** (stripe/stripe-php ^19.0) - Integração com gateway de pagamento
+- Instalado via: `composer install`
+
 #### **⚠️ APIs Externas (Requerem Configuração):**
 - OpenAI API (ChatGPT)
 - YouTube Data API v3
+- Stripe API (Para pagamentos e assinaturas)
 
 #### **📄 Opcional:**
 - DomPDF (para PDFs - ver `INSTALAR_PDF.txt`)
+- Stripe CLI (para testar webhooks localmente)
 
 **📖 Para detalhes completos, veja a seção [📚 Bibliotecas e Dependências](#-bibliotecas-e-dependências) abaixo.**
 
@@ -284,11 +293,39 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
    - Selecione o arquivo **`seed.sql`**
    - Clique em **"Executar"**
 
-### **Passo 3: Configurar Chaves de API**
+### **Passo 3: Instalar Dependências com Composer**
 
-**⚠️ IMPORTANTE:** Você precisa configurar 2 APIs para o sistema funcionar completamente.
+**⚠️ IMPORTANTE:** O projeto usa Composer para gerenciar dependências PHP (Stripe SDK).
 
-#### **3.1. Criar arquivo `.env`:**
+1. **Instalar Composer** (se ainda não tiver):
+   - **Windows:** Baixe e execute: https://getcomposer.org/Composer-Setup.exe
+   - **Linux/Mac:** 
+     ```bash
+     curl -sS https://getcomposer.org/installer | php
+     sudo mv composer.phar /usr/local/bin/composer
+     ```
+
+2. **Instalar Dependências:**
+   ```bash
+   cd /opt/lampp/htdocs/aistudy  # ou C:\xampp\htdocs\aistudy no Windows
+   composer install
+   ```
+
+   Isso instalará automaticamente:
+   - `stripe/stripe-php` (SDK do Stripe para pagamentos)
+
+3. **Verificar Instalação:**
+   ```bash
+   composer show
+   ```
+   
+   Deve mostrar: `stripe/stripe-php`
+
+### **Passo 4: Configurar Chaves de API**
+
+**⚠️ IMPORTANTE:** Você precisa configurar 3 APIs para o sistema funcionar completamente.
+
+#### **4.1. Criar arquivo `.env`:**
 
 1. **Copiar o arquivo de exemplo:**
    ```bash
@@ -303,7 +340,7 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
    - Abra o arquivo `.env` na raiz do projeto
    - Preencha com suas chaves reais (veja os passos abaixo)
 
-#### **3.2. Obter e Configurar OpenAI API Key (ChatGPT):**
+#### **4.2. Obter e Configurar OpenAI API Key (ChatGPT):**
 
 1. **Obter Chave:**
    - Acesse: https://platform.openai.com/api-keys
@@ -319,7 +356,7 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
      OPENAI_API_KEY=sk-sua-chave-real-aqui
      ```
 
-#### **3.3. Obter e Configurar YouTube Data API v3 Key:**
+#### **4.3. Obter e Configurar YouTube Data API v3 Key:**
 
 1. **Obter Chave:**
    - Acesse: https://console.cloud.google.com/
@@ -338,9 +375,31 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
      YOUTUBE_API_KEY=sua-chave-real-aqui
      ```
 
+#### **4.4. Obter e Configurar Stripe API Keys:**
+
+1. **Obter Chaves:**
+   - Acesse: https://dashboard.stripe.com/test/apikeys
+   - Faça login na sua conta Stripe (ou crie uma conta gratuita)
+   - Na seção **"Test mode"**, copie:
+     - **Secret key** (começa com `sk_test_...`)
+     - **Publishable key** (começa com `pk_test_...`)
+
+2. **Configurar no `.env`:**
+   - Abra o arquivo `.env`
+   - Encontre as linhas:
+     ```env
+     STRIPE_SECRET_KEY=sk_test_sua-chave-secreta-stripe-aqui
+     STRIPE_PUBLISHABLE_KEY=pk_test_sua-chave-publica-stripe-aqui
+     ```
+   - Substitua pelas suas chaves reais do Stripe
+
+3. **Webhook Secret (Opcional para desenvolvimento):**
+   - Veja a seção [Configuração do Stripe CLI](#-configuração-do-stripe-cli) abaixo
+   - Ou deixe vazio durante desenvolvimento: `STRIPE_WEBHOOK_SECRET=`
+
 **📖 Para instruções detalhadas, veja o arquivo `CONFIGURAR_ENV.md`**
 
-### **Passo 4: Instalar Arquivos do Sistema**
+### **Passo 5: Instalar Arquivos do Sistema**
 
 1. **Copiar Arquivos:**
    - Copie toda a pasta `aistudy` para: `C:\xampp\htdocs\`
@@ -359,7 +418,67 @@ No XAMPP, as extensões geralmente já vêm habilitadas. Para verificar:
    └── README.md
    ```
 
-### **Passo 5: Testar Instalação**
+### **Passo 6: Configurar Stripe CLI (Opcional - Para Testar Webhooks Localmente)**
+
+**⚠️ OPCIONAL:** Necessário apenas se quiser testar webhooks localmente. O sistema funciona sem isso.
+
+#### **6.1. Instalar Stripe CLI:**
+
+O Stripe CLI já está incluído no projeto em `bin/stripe`. Se precisar reinstalar:
+
+**Linux/Mac:**
+```bash
+cd /opt/lampp/htdocs/aistudy/bin
+curl -L "https://github.com/stripe/stripe-cli/releases/download/v1.21.9/stripe_1.21.9_linux_x86_64.tar.gz" -o stripe-cli.tar.gz
+tar -xzf stripe-cli.tar.gz
+chmod +x stripe
+```
+
+**Windows:**
+- Baixe de: https://github.com/stripe/stripe-cli/releases/latest
+- Extraia e coloque `stripe.exe` em `bin/stripe.exe`
+
+#### **6.2. Fazer Login no Stripe:**
+
+```bash
+cd /opt/lampp/htdocs/aistudy
+./bin/stripe login
+```
+
+Isso abrirá seu navegador para autenticação.
+
+#### **6.3. Iniciar Túnel de Webhook:**
+
+Em um terminal, execute:
+
+```bash
+cd /opt/lampp/htdocs/aistudy
+./bin/stripe-webhook.sh
+```
+
+OU diretamente:
+
+```bash
+./bin/stripe listen --forward-to http://localhost/aistudy/webhook-pagamento.php
+```
+
+#### **6.4. Copiar Webhook Secret:**
+
+Quando o túnel iniciar, você verá:
+
+```
+> Ready! Your webhook signing secret is whsec_xxxxx (^C to quit)
+```
+
+Copie esse `whsec_xxxxx` e adicione no `.env`:
+
+```env
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+```
+
+**📖 Para mais detalhes, veja: `STRIPE_SETUP.md`**
+
+### **Passo 7: Testar Instalação**
 
 1. **Acessar o Sistema:**
    - Abra o navegador
@@ -476,13 +595,20 @@ aistudy/
 │   └── 📁 css/
 │       └── 📄 style.css          # Estilos principais (Bootstrap + custom)
 │
+├── 📁 bin/                       # Binários e scripts
+│   ├── 📄 stripe                # Stripe CLI (instalado)
+│   └── 📄 stripe-webhook.sh     # Script helper para webhooks
+│
 ├── 📁 classes/                   # Classes PHP (Modelo MVC)
 │   ├── 📄 User.php              # Gerenciamento de usuários
 │   ├── 📄 Routine.php           # Gerenciamento de rotinas
 │   ├── 📄 Task.php              # Gerenciamento de tarefas
-│   ├── 📄 Quiz.php              # Gerenciamento de quizzes
 │   ├── 📄 Calendar.php          # Sistema de calendário real
-│   └── 📄 YouTubeSearch.php     # Busca de vídeos educacionais
+│   ├── 📄 PaymentGateway.php    # Integração com Stripe
+│   └── 📄 PlanService.php       # Gerenciamento de planos
+│
+├── 📁 vendor/                    # Dependências Composer
+│   └── 📁 stripe/               # Stripe PHP SDK
 │
 ├── 📁 config/                   # Configurações do sistema
 │   ├── 📄 database.php          # Configuração do banco MySQL
@@ -509,6 +635,16 @@ aistudy/
 │
 ├── 📄 schema.sql                # Estrutura do banco MySQL
 ├── 📄 seed.sql                  # Dados iniciais (usuários exemplo)
+├── 📄 composer.json             # Dependências PHP (Composer)
+├── 📄 .env.example              # Exemplo de variáveis de ambiente
+├── 📄 checkout.php              # Página de checkout Stripe
+├── 📄 pagamento-sucesso.php     # Página de confirmação de pagamento
+├── 📄 webhook-pagamento.php     # Endpoint para webhooks do Stripe
+├── 📄 planos.php                # Página de seleção de planos
+├── 📄 modo-enem.php             # Modo ENEM
+├── 📄 modo-concurso.php         # Modo Concurso
+├── 📄 setup-stripe.sh           # Script de configuração do Stripe
+├── 📄 STRIPE_SETUP.md           # Guia completo do Stripe
 └── 📄 README.md                 # Este arquivo
 ```
 
@@ -536,14 +672,132 @@ aistudy/
 - **`User.php`** - CRUD de usuários, autenticação
 - **`Routine.php`** - CRUD de rotinas, progresso
 - **`Task.php`** - CRUD de tarefas, status
-- **`Quiz.php`** - CRUD de quizzes, correção
 - **`Calendar.php`** - Sistema de calendário real
-- **`YouTubeSearch.php`** - Busca de vídeos educacionais
+- **`PaymentGateway.php`** - Integração com Stripe (pagamentos)
+- **`PlanService.php`** - Gerenciamento de planos e assinaturas
+- **`YouTubeService.php`** - Busca de vídeos educacionais
 
 #### **⚙️ Configurações:**
 - **`database.php`** - Conexão com MySQL
 - **`api.php`** - Integração com OpenAI ChatGPT
+- **`env-loader.php`** - Carregador de variáveis de ambiente (.env)
 - **`fallback-data.php`** - Dados quando API falha
+
+#### **💳 Pagamentos:**
+- **`checkout.php`** - Página de checkout com Stripe
+- **`pagamento-sucesso.php`** - Confirmação de pagamento
+- **`webhook-pagamento.php`** - Endpoint para webhooks do Stripe
+- **`planos.php`** - Seleção e visualização de planos
+
+## 💳 Sistema de Pagamentos com Stripe
+
+### **Funcionalidades de Pagamento:**
+
+O sistema está integrado com **Stripe** para processar pagamentos de planos:
+
+- ✅ **Assinaturas Recorrentes** (Cartão de Crédito)
+- ✅ **Pagamento Único** (PIX e Boleto)
+- ✅ **Webhooks Automáticos** para atualização de status
+- ✅ **Valores de Teste** (R$ 0,01) configurados no seed.sql
+
+### **Como Funciona:**
+
+1. **Usuário seleciona um plano** em `planos.php`
+2. **Redireciona para checkout** em `checkout.php`
+3. **Escolhe método de pagamento** (Cartão/PIX ou apenas PIX)
+4. **É redirecionado para Stripe Checkout** (página segura do Stripe)
+5. **Após pagamento**, retorna para `pagamento-sucesso.php`
+6. **Webhook atualiza** status da assinatura automaticamente
+
+### **Configuração do Stripe CLI (Para Desenvolvimento Local):**
+
+Como o domínio ainda não está no ar, você pode testar webhooks localmente usando o Stripe CLI:
+
+#### **1. Fazer Login:**
+```bash
+cd /opt/lampp/htdocs/aistudy
+./bin/stripe login
+```
+
+#### **2. Iniciar Túnel de Webhook:**
+```bash
+./bin/stripe-webhook.sh
+```
+
+Ou diretamente:
+```bash
+./bin/stripe listen --forward-to http://localhost/aistudy/webhook-pagamento.php
+```
+
+#### **3. Copiar Webhook Secret:**
+Quando o túnel iniciar, copie o `whsec_xxxxx` que aparecer e adicione no `.env`:
+```env
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+```
+
+#### **4. Testar Eventos (Opcional):**
+Em outro terminal:
+```bash
+./bin/stripe trigger checkout.session.completed
+./bin/stripe trigger customer.subscription.created
+```
+
+### **Cartões de Teste do Stripe:**
+
+Para testar pagamentos, use estes cartões de teste do Stripe:
+
+#### **✅ Cartões que Funcionam (Pagamento Aprovado):**
+
+| Número do Cartão | CVV | Data de Validade | Descrição |
+|------------------|-----|------------------|-----------|
+| `4242 4242 4242 4242` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Cartão Visa padrão - sempre aprovado |
+| `5555 5555 5555 4444` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Cartão Mastercard padrão - sempre aprovado |
+| `4000 0566 5566 5556` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Cartão Visa - sempre aprovado |
+
+#### **❌ Cartões que Falham (Pagamento Recusado):**
+
+| Número do Cartão | CVV | Data de Validade | Descrição |
+|------------------|-----|------------------|-----------|
+| `4000 0000 0000 0002` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Cartão recusado genérico |
+| `4000 0000 0000 9995` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Cartão recusado por fundos insuficientes |
+| `4000 0000 0000 0069` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Cartão expirado |
+
+#### **💳 Cartões para Testar Cenários Específicos:**
+
+| Número do Cartão | CVV | Data de Validade | Descrição |
+|------------------|-----|------------------|-----------|
+| `4000 0025 0000 3155` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Requer autenticação 3D Secure |
+| `4000 0000 0000 3220` | Qualquer 3 dígitos (ex: 123) | Qualquer data futura (ex: 12/25) | Requer autenticação 3D Secure (falha) |
+
+#### **📝 Informações Adicionais para Teste:**
+
+- **Nome no Cartão:** Qualquer nome (ex: João Silva)
+- **CEP:** Qualquer CEP válido (ex: 01310-100)
+- **Endereço:** Qualquer endereço válido
+- **CVV:** Qualquer 3 dígitos (ex: 123, 456, 789)
+- **Data de Validade:** Qualquer data futura (ex: 12/25, 06/26)
+
+**💡 Dica:** Use sempre o cartão `4242 4242 4242 4242` para testes rápidos - ele sempre funciona!
+
+### **Valores de Teste:**
+
+Os planos estão configurados com valores irrisórios para facilitar testes:
+
+- **Free:** R$ 0,00 (gratuito)
+- **ENEM+:** R$ 0,01 (teste)
+- **Concurso+:** R$ 0,01 (teste)
+- **Premium:** R$ 0,01 (teste)
+
+### **Arquivos Relacionados:**
+
+- `classes/PaymentGateway.php` - Integração com Stripe
+- `checkout.php` - Página de checkout
+- `webhook-pagamento.php` - Endpoint para receber webhooks
+- `pagamento-sucesso.php` - Página de confirmação
+- `bin/stripe` - Stripe CLI (já incluído)
+- `bin/stripe-webhook.sh` - Script helper para webhooks
+
+**📖 Para mais detalhes, veja: `STRIPE_SETUP.md`**
 
 ## 🔧 Configurações Avançadas
 
@@ -624,6 +878,27 @@ Edite `classes/YouTubeSearch.php` para adicionar:
 2. Deve funcionar mesmo sem API
 3. Verifique se há erros no console
 
+### **❌ Erro ao Processar Pagamento**
+
+**Problema:** "Erro ao criar sessão de pagamento" ou "Chave do Stripe não configurada"
+**Solução:**
+1. Verifique se `STRIPE_SECRET_KEY` está configurado no `.env`
+2. Confirme se as chaves são de **teste** (`sk_test_...` e `pk_test_...`)
+3. Verifique se o Composer instalou as dependências: `composer install`
+4. Confirme se a pasta `vendor/` existe e contém `stripe/stripe-php`
+
+### **❌ Webhook não Funciona**
+
+**Problema:** Webhooks não estão sendo recebidos
+**Solução:**
+1. Para desenvolvimento local, use o Stripe CLI:
+   ```bash
+   ./bin/stripe listen --forward-to http://localhost/aistudy/webhook-pagamento.php
+   ```
+2. Copie o webhook secret e adicione no `.env`
+3. Mantenha o túnel aberto enquanto testa
+4. Para produção, configure webhook real no Dashboard do Stripe
+
 ## 📝 Dados de Exemplo
 
 O arquivo `seed.sql` inclui usuários de teste:
@@ -635,9 +910,18 @@ O arquivo `seed.sql` inclui usuários de teste:
 | pedro@email.com | password | Pedro Costa |
 
 **Rotinas de Exemplo:**
-- Álgebra Linear (Intermediário)
-- Programação Python (Iniciante)
-- Machine Learning (Avançado)
+- Python - Nível Iniciante (João)
+- JavaScript - Nível Intermediário (João)
+- Coreano - Nível Iniciante (Maria)
+- Matemática - Nível Avançado (Pedro)
+
+**Planos de Teste:**
+- **Free:** R$ 0,00 (gratuito)
+- **ENEM+:** R$ 0,01 (teste)
+- **Concurso+:** R$ 0,01 (teste)
+- **Premium:** R$ 0,01 (teste)
+
+**💡 Dica:** Use os valores de R$ 0,01 para testar pagamentos sem gastar dinheiro real!
 
 ## 🚀 Funcionalidades Futuras
 
@@ -648,6 +932,7 @@ O arquivo `seed.sql` inclui usuários de teste:
 - 📊 **Exportação de relatórios** em PDF
 - 📱 **App mobile** para Android/iOS
 - 🔔 **Notificações push** no navegador
+- 💳 **Mais gateways de pagamento** (Mercado Pago, PagSeguro)
 
 ### **Melhorias Planejadas:**
 - 🎨 **Temas personalizáveis** (claro/escuro)
@@ -665,10 +950,13 @@ O arquivo `seed.sql` inclui usuários de teste:
 
 ### **Verificações Básicas:**
 1. ✅ XAMPP rodando (Apache + MySQL)
-2. ✅ Banco `aistudy` criado
-3. ✅ Arquivos em `C:\xampp\htdocs\aistudy\`
-4. ✅ Chave da API configurada
-5. ✅ Acesso a http://localhost/aistudy
+2. ✅ Composer instalado e dependências instaladas (`composer install`)
+3. ✅ Banco `aistudy` criado e populado (schema.sql + seed.sql)
+4. ✅ Arquivo `.env` criado e configurado
+5. ✅ Chaves de API configuradas (OpenAI, YouTube, Stripe)
+6. ✅ Arquivos em `C:\xampp\htdocs\aistudy\` (Windows) ou `/opt/lampp/htdocs/aistudy` (Linux)
+7. ✅ Acesso a http://localhost/aistudy
+8. ✅ Stripe CLI configurado (opcional, para webhooks locais)
 
 ### **Contato:**
 - 📧 **Email:** suporte@aistudy.com

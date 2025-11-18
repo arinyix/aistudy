@@ -234,13 +234,15 @@ class OpenAIService {
         if ($ritmoSimulados !== 'nenhum') { $extras[] = "Ritmo de simulados: {$ritmoSimulados}"; }
         $extrasTexto = !empty($extras) ? ("\n\nInformações adicionais:\n- " . implode("\n- ", $extras)) : '';
         
-        $prompt = "Você é um planejador de estudos especializado em ENEM.\n\nCrie um PLANO DE ESTUDOS semanal em formato JSON estruturado, para um aluno com as seguintes informações:\n\n- Ano do ENEM: {$anoEnem}\n- Nota alvo aproximada: {$notaAlvo}\n- Áreas prioritárias: {$areasTexto}\n- Nível atual: {$nivel} (iniciante, intermediário, avançado)\n- Horas disponíveis por dia: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)\n- Dias da semana disponíveis: " . implode(', ', $diasDisponiveis) . "\n- Horário preferido: {$horario}\n- Dificuldades principais: " . ($dificuldades ?: 'Não especificadas') . "{$extrasTexto}\n\nRegras específicas para ENEM:\n1. Foque na matriz de competências do ENEM\n2. Priorize as áreas indicadas: {$areasTexto}\n3. Inclua estratégias TRI (Teoria de Resposta ao Item)\n4. Divida o estudo por dia, indicando:\n   - Matérias/assuntos específicos do ENEM\n   - Tempo sugerido por atividade\n   - Tipo de atividade (teoria, questões ENEM, revisão, simulado)\n5. Inclua momentos de revisão espaçada (24h, 7 dias, 30 dias)\n6. Foque na lógica do ENEM: interpretação de texto, leitura de gráficos, resolução de questões\n7. Inclua simulados no ritmo definido: {$ritmoSimulados}\n8. Distribua o tempo diário proporcional aos pesos de disciplinas quando fornecidos ({$pesosDisciplinas})\n9. Sugerir temas de redação e lista de exercícios por área quando relevante\n\nÁreas do ENEM:\n- Linguagens, Códigos e suas Tecnologias\n- Ciências Humanas e suas Tecnologias\n- Ciências da Natureza e suas Tecnologias\n- Matemática e suas Tecnologias\n- Redação\n\nCRIE EXATAMENTE {$totalDias} DIAS DE ESTUDO:\n- Distribua as áreas ao longo da semana\n- Priorize as áreas indicadas: {$areasTexto}\n- Inclua revisões regulares\n- Inclua simulados periódicos conforme ritmo\n- Foque em questões estilo ENEM\n\nRetorne um JSON com a seguinte estrutura:\n{\n    'titulo': 'Plano ENEM {$anoEnem} - Nota Alvo {$notaAlvo}',\n    'descricao': 'Plano de {$totalDias} dias para ENEM {$anoEnem}',\n    'dias': [\n        {\n            'dia': 1,\n            'tarefas': [\n                {\n                    'titulo': 'Título específico do tópico ENEM',\n                    'descricao': 'Descrição detalhada do que será estudado',\n                    'material': {\n                        'videos': [],\n                        'textos': ['Material de estudo específico'],\n                        'exercicios': ['Questões ENEM sobre o tópico']\n                    }\n                }\n            ]\n        }\n    ]\n}\n\n⚠️ IMPORTANTE:\n- Retorne APENAS o JSON válido, SEM texto adicional\n- NÃO use markdown code blocks\n- Foque em conteúdo específico do ENEM\n- Use questões e materiais relacionados ao ENEM";
+        $prompt = "Você é um planejador de estudos especializado em ENEM.\n\nCrie um PLANO DE ESTUDOS COMPLETO em formato JSON estruturado, para um aluno com as seguintes informações:\n\n- Ano do ENEM: {$anoEnem}\n- Nota alvo aproximada: {$notaAlvo}\n- Áreas prioritárias: {$areasTexto}\n- Nível atual: {$nivel} (iniciante, intermediário, avançado)\n- Horas disponíveis por dia: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)\n- Dias da semana disponíveis: " . implode(', ', $diasDisponiveis) . "\n- Horário preferido: {$horario}\n- Dificuldades principais: " . ($dificuldades ?: 'Não especificadas') . "{$extrasTexto}\n\nRegras específicas para ENEM:\n1. Foque na matriz de competências do ENEM\n2. Priorize as áreas indicadas: {$areasTexto}\n3. Inclua estratégias TRI (Teoria de Resposta ao Item)\n4. Divida o estudo por dia, indicando:\n   - Matérias/assuntos específicos do ENEM\n   - Tempo sugerido por atividade\n   - Tipo de atividade (teoria, questões ENEM, revisão, simulado)\n5. Inclua momentos de revisão espaçada (24h, 7 dias, 30 dias)\n6. Foque na lógica do ENEM: interpretação de texto, leitura de gráficos, resolução de questões\n7. Inclua simulados no ritmo definido: {$ritmoSimulados}\n8. Distribua o tempo diário proporcional aos pesos de disciplinas quando fornecidos ({$pesosDisciplinas})\n9. Sugerir temas de redação e lista de exercícios por área quando relevante\n\nÁreas do ENEM:\n- Linguagens, Códigos e suas Tecnologias\n- Ciências Humanas e suas Tecnologias\n- Ciências da Natureza e suas Tecnologias\n- Matemática e suas Tecnologias\n- Redação\n\n🔴🔴🔴 REGRA CRÍTICA - NÚMERO DE DIAS 🔴🔴🔴:\n- Você DEVE criar EXATAMENTE {$totalDias} DIAS DE ESTUDO\n- NÃO crie apenas 7 dias ou uma semana\n- NÃO pare antes de criar todos os {$totalDias} dias\n- O array 'dias' DEVE conter {$totalDias} objetos, um para cada dia (dia 1, dia 2, dia 3... até dia {$totalDias})\n- Cada dia deve ter pelo menos 1 tarefa\n- Distribua as áreas ao longo de TODOS os {$totalDias} dias\n- Priorize as áreas indicadas: {$areasTexto}\n- Inclua revisões regulares ao longo dos {$totalDias} dias\n- Inclua simulados periódicos conforme ritmo\n- Foque em questões estilo ENEM\n- Progressão gradual do conteúdo ao longo dos {$totalDias} dias\n\nRetorne um JSON com a seguinte estrutura:\n{\n    'titulo': 'Plano ENEM {$anoEnem} - Nota Alvo {$notaAlvo}',\n    'descricao': 'Plano de {$totalDias} dias para ENEM {$anoEnem}',\n    'dias': [\n        {\n            'dia': 1,\n            'tarefas': [\n                {\n                    'titulo': 'Título específico do tópico ENEM',\n                    'descricao': 'Descrição detalhada do que será estudado',\n                    'material': {\n                        'videos': [],\n                        'textos': ['Material de estudo específico'],\n                        'exercicios': ['Questões ENEM sobre o tópico']\n                    }\n                }\n            ]\n        },\n        {\n            'dia': 2,\n            'tarefas': [...]\n        },\n        ...\n        {\n            'dia': {$totalDias},\n            'tarefas': [...]\n        }\n    ]\n}\n\n⚠️⚠️⚠️ IMPORTANTE FINAL ⚠️⚠️⚠️:\n- Retorne APENAS o JSON válido, SEM texto adicional\n- NÃO use markdown code blocks\n- O array 'dias' DEVE ter EXATAMENTE {$totalDias} elementos\n- Foque em conteúdo específico do ENEM\n- Use questões e materiais relacionados ao ENEM\n- NÃO crie menos dias que {$totalDias}";
 
         // Acrescentar regra rígida de campos e estrutura
-        $prompt .= "\n\nRegras de estrutura (OBRIGATÓRIO):\n- Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios.\n- NÃO crie campos extras ou diferentes.\n- O JSON final DEVE seguir exatamente o esquema informado.";
+        $prompt .= "\n\nRegras de estrutura (OBRIGATÓRIO):\n- Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios.\n- NÃO crie campos extras ou diferentes.\n- O JSON final DEVE seguir exatamente o esquema informado.\n- LEMBRE-SE: O array 'dias' DEVE ter EXATAMENTE {$totalDias} elementos.";
 
-        // Aumentar tokens para garantir resposta completa (8000 tokens para planos grandes)
-        return $this->makeAPICall($prompt, 8000, 0.4);
+        // Aumentar tokens significativamente para garantir resposta completa com todos os dias
+        // Para 120 dias, precisamos de mais tokens (16000 para garantir)
+        $maxTokens = $totalDias > 60 ? 16000 : 12000;
+        return $this->makeAPICall($prompt, $maxTokens, 0.5);
     }
     
     public function generateConcursoPlan($dadosConcurso) {
@@ -285,6 +287,14 @@ class OpenAIService {
         6. PROIBIDO usar títulos genéricos como 'Teoria aplicada', 'Questões da banca', 'Revisão guiada'.
         7. Cada tarefa deve ser ESPECÍFICA e ÚNICA - não repita os mesmos subtemas.
         
+        🔴🔴🔴 REGRA CRÍTICA - NÚMERO DE DIAS 🔴🔴🔴:
+        - Você DEVE criar EXATAMENTE {$totalDias} DIAS DE ESTUDO
+        - NÃO crie apenas alguns dias ou pare antes de criar todos os {$totalDias} dias
+        - O array 'dias' DEVE conter {$totalDias} objetos, um para cada dia (dia 1, dia 2, dia 3... até dia {$totalDias})
+        - Cada dia deve ter pelo menos 1 tarefa
+        - Distribua as disciplinas ao longo de TODOS os {$totalDias} dias
+        - Progressão gradual do conteúdo ao longo dos {$totalDias} dias
+        
         IMPORTANTE PARA OS VÍDEOS - LEIA COM ATENÇÃO:
         - Você recebeu uma lista de vídeos reais do YouTube em JSON
         - Use SOMENTE esses vídeos reais na resposta
@@ -297,7 +307,7 @@ class OpenAIService {
         - Se houver poucos vídeos, use cada vídeo em múltiplas tarefas se necessário
         - NÃO crie IDs falsos, use os IDs REAIS dos vídeos fornecidos
         
-        Retorne um JSON com a seguinte estrutura:
+        Retorne um JSON com a seguinte estrutura EXATA:
         {
             \"titulo\": \"Plano Concurso - {$tipoConcurso}\",
             \"descricao\": \"Plano de {$totalDias} dias para {$tipoConcurso} (banca {$banca})\",
@@ -324,6 +334,15 @@ class OpenAIService {
                             }
                         }
                     ]
+                },
+                {
+                    \"dia\": 2,
+                    \"tarefas\": [...]
+                },
+                ...
+                {
+                    \"dia\": {$totalDias},
+                    \"tarefas\": [...]
                 }
             ]
         }
@@ -337,18 +356,22 @@ class OpenAIService {
         - Cada tarefa deve ser ESPECÍFICA e ÚNICA
         - INFIRA as disciplinas baseado em {$tipoConcurso} e {$banca}
         - Use subtemas REAIS e ESPECÍFICOS, não genéricos
+        - O array 'dias' DEVE ter EXATAMENTE {$totalDias} elementos
         
         🔴🔴🔴 FORMATO DE RESPOSTA CRÍTICO 🔴🔴🔴:
         - Retorne APENAS o JSON válido, SEM texto adicional antes ou depois
         - NÃO use markdown code blocks (```json ou ```)
         - NÃO adicione explicações, comentários ou texto antes do JSON
         - NÃO adicione texto depois do JSON
-        - O JSON deve começar com chave de abertura e terminar com chave de fechamento
+        - O JSON deve começar com chave de abertura { e terminar com chave de fechamento }
         - Retorne APENAS o objeto JSON, nada mais, nada menos
-        - Use APENAS aspas duplas (\") para chaves e valores de string";
+        - Use APENAS aspas duplas (\") para chaves e valores de string
+        - NÃO crie menos dias que {$totalDias}";
 
-        // Usar mesmo padrão dos outros métodos (8000 tokens, temperatura padrão)
-        return $this->makeAPICall($prompt, 8000, 0.7, 'json');
+        // Aumentar tokens significativamente para garantir resposta completa com todos os dias
+        // Para 120 dias, precisamos de mais tokens (16000 para garantir)
+        $maxTokens = $totalDias > 60 ? 16000 : 12000;
+        return $this->makeAPICall($prompt, $maxTokens, 0.5, 'json');
     }
     
     public function generateSummaryPDF($topico, $nivel, $descricao) {

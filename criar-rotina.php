@@ -314,11 +314,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
             }
             
-            // Tentar decodificar JSON diretamente
-            $plano_data = json_decode($plano, true);
+            // Limpar resposta de possíveis markdown code blocks
+            $planoLimpo = $plano;
+            // Remover markdown code blocks (```json ou ```)
+            $planoLimpo = preg_replace('/```json\s*/i', '', $planoLimpo);
+            $planoLimpo = preg_replace('/```\s*/', '', $planoLimpo);
+            // Remover texto antes do primeiro {
+            $firstBrace = strpos($planoLimpo, '{');
+            if ($firstBrace !== false && $firstBrace > 0) {
+                $planoLimpo = substr($planoLimpo, $firstBrace);
+            }
+            // Remover texto depois do último }
+            $lastBrace = strrpos($planoLimpo, '}');
+            if ($lastBrace !== false) {
+                $planoLimpo = substr($planoLimpo, 0, $lastBrace + 1);
+            }
+            
+            // Log da resposta bruta (primeiros 1000 caracteres) para debug
+            error_log("RESPOSTA IA BRUTA (tipo: {$tipo_rotina}, primeiros 1000 chars): " . substr($plano, 0, 1000));
+            error_log("RESPOSTA IA LIMPA (tipo: {$tipo_rotina}, primeiros 500 chars): " . substr($planoLimpo, 0, 500));
+            
+            // Tentar decodificar JSON diretamente (usar versão limpa)
+            $plano_data = json_decode($planoLimpo, true);
             $jsonError = json_last_error();
             
             if ($jsonError !== JSON_ERROR_NONE) {
+                error_log("ERRO JSON DECODE (tipo: {$tipo_rotina}): " . json_last_error_msg());
                 // Tentar reparar JSON truncado (adicionar chaves de fechamento faltantes)
                 $planoReparado = $plano;
                 $abreChaves = substr_count($planoReparado, '{');
@@ -338,11 +359,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $plano_data = json_decode($planoReparado, true);
                     if (json_last_error() !== JSON_ERROR_NONE || !is_array($plano_data)) {
-                        $plano_data = flexibleJsonDecode($plano);
+                        $plano_data = flexibleJsonDecode($planoLimpo);
                     }
                 } else {
-                    // Tentar decoder flexível
-                    $plano_data = flexibleJsonDecode($plano);
+                    // Tentar decoder flexível (usar versão limpa)
+                    $plano_data = flexibleJsonDecode($planoLimpo);
                 }
             }
         } catch (Exception $e) {
@@ -392,16 +413,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Validação mais flexível: aceitar se tiver pelo menos 1 dia válido
         $diasValidos = 0;
-        if ($plano_data && is_array($plano_data) && isset($plano_data['dias']) && is_array($plano_data['dias'])) {
-            foreach ($plano_data['dias'] as $dia) {
-                if (is_array($dia) && isset($dia['tarefas']) && is_array($dia['tarefas']) && !empty($dia['tarefas'])) {
+        $debugInfo = [];
+        
+        if (!$plano_data) {
+            $debugInfo[] = 'plano_data é null ou false';
+        } elseif (!is_array($plano_data)) {
+            $debugInfo[] = 'plano_data não é array (tipo: ' . gettype($plano_data) . ')';
+        } else {
+            if (!isset($plano_data['dias'])) {
+                $debugInfo[] = 'chave "dias" não existe no plano_data';
+                $debugInfo[] = 'chaves disponíveis: ' . implode(', ', array_keys($plano_data));
+            } elseif (!is_array($plano_data['dias'])) {
+                $debugInfo[] = 'plano_data["dias"] não é array (tipo: ' . gettype($plano_data['dias']) . ')';
+            } else {
+                $totalDiasRecebidos = count($plano_data['dias']);
+                $debugInfo[] = "total de dias recebidos: {$totalDiasRecebidos}";
+                
+                foreach ($plano_data['dias'] as $index => $dia) {
+                    if (!is_array($dia)) {
+                        $debugInfo[] = "dia {$index} não é array";
+                        continue;
+                    }
+                    if (!isset($dia['tarefas'])) {
+                        $debugInfo[] = "dia {$index} não tem chave 'tarefas'";
+                        continue;
+                    }
+                    if (!is_array($dia['tarefas'])) {
+                        $debugInfo[] = "dia {$index}['tarefas'] não é array";
+                        continue;
+                    }
+                    if (empty($dia['tarefas'])) {
+                        $debugInfo[] = "dia {$index} tem array de tarefas vazio";
+                        continue;
+                    }
                     $diasValidos++;
                 }
             }
         }
         
         if (!$plano_data || !is_array($plano_data) || !isset($plano_data['dias']) || !is_array($plano_data['dias']) || $diasValidos === 0) {
-            $errorMsg = 'Estrutura do plano inválida. A IA não retornou a estrutura exigida. Tente novamente.';
+            // Log detalhado para debug (apenas em desenvolvimento)
+            error_log("ERRO VALIDAÇÃO PLANO - Tipo: {$tipo_rotina}");
+            error_log("Debug info: " . implode(' | ', $debugInfo));
+            if ($plano_data && is_array($plano_data)) {
+                error_log("Estrutura recebida (primeiros 500 chars): " . substr(json_encode($plano_data), 0, 500));
+            }
+            
+            $errorMsg = 'Estrutura do plano inválida. A IA não retornou a estrutura exigida. ';
+            if (!empty($debugInfo)) {
+                $errorMsg .= 'Detalhes: ' . implode(', ', array_slice($debugInfo, 0, 3));
+            }
+            $errorMsg .= ' Tente novamente.';
+            
             setFlash('error', $errorMsg);
             header('Location: ' . $returnTo, true, 303);
             exit;

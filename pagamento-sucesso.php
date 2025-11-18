@@ -1,16 +1,36 @@
 <?php
 require_once 'includes/session.php';
 require_once 'classes/PlanService.php';
+require_once 'classes/PaymentGateway.php';
 
 requireLogin();
 $user = getCurrentUser();
 
 $planService = new PlanService();
 $planoSlug = $_GET['plano'] ?? '';
+$session_id = $_GET['session_id'] ?? '';
 
 $plano = null;
 if ($planoSlug) {
     $plano = $planService->getPlanBySlug($planoSlug);
+}
+
+// Se tiver session_id, verificar status do pagamento
+if (!empty($session_id)) {
+    try {
+        $gateway = new PaymentGateway('stripe');
+        $sessionInfo = $gateway->getSessionInfo($session_id);
+        
+        if ($sessionInfo && $sessionInfo['payment_status'] === 'paid') {
+            // Pagamento confirmado, atualizar assinatura se necessário
+            $subscription_id = $sessionInfo['subscription'] ?? null;
+            if ($subscription_id) {
+                $planService->updateSubscriptionByExternalId($subscription_id, 'ativo', null);
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Erro ao verificar sessão: " . $e->getMessage());
+    }
 }
 
 $planoAtivo = $planService->getActiveSubscription($user['id']);

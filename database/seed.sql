@@ -64,13 +64,13 @@ INSERT INTO activity_logs (user_id, acao, detalhes, ip_address, user_agent) VALU
 (2, 'login', '{"timestamp": "2024-01-10 20:00:00"}', '192.168.1.101', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'),
 (2, 'criar_rotina', '{"rotina_id": 3, "tema": "Coreano"}', '192.168.1.101', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
--- Popular tabela planos com planos padrão
+-- Popular tabela planos com planos padrão (valores irrisórios para teste)
 INSERT INTO planos (nome, slug, preco_mensal, descricao, recursos, ativo) VALUES
 ('Free', 'free', 0.00, 'Plano gratuito com funcionalidades básicas', 
  '["rotinas_gerais", "resumos_basicos"]', TRUE),
-('ENEM+', 'enem_plus', 29.90, 'Plano completo para preparação ENEM', 
+('ENEM+', 'enem_plus', 0.01, 'Plano completo para preparação ENEM (TESTE: R$ 0,01)', 
  '["rotinas_gerais", "modo_enem", "resumos_completos", "suporte_prioritario"]', TRUE),
-('Concurso+', 'concurso_plus', 39.90, 'Plano completo para concursos públicos', 
+('Concurso+', 'concurso_plus', 0.01, 'Plano completo para concursos públicos (TESTE: R$ 0,01)', 
  '["rotinas_gerais", "modo_concurso", "resumos_completos", "suporte_prioritario"]', TRUE),
-('Premium', 'premium', 49.90, 'Plano completo com todos os recursos', 
+('Premium', 'premium', 0.01, 'Plano completo com todos os recursos (TESTE: R$ 0,01)', 
  '["rotinas_gerais", "modo_enem", "modo_concurso", "resumos_completos", "suporte_prioritario", "recursos_avancados"]', TRUE);
