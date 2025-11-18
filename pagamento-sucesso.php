@@ -2,9 +2,12 @@
 require_once 'includes/session.php';
 require_once 'classes/PlanService.php';
 require_once 'classes/PaymentGateway.php';
+require_once 'includes/navbar.php';
 
 requireLogin();
 $user = getCurrentUser();
+// Tornar $user disponível globalmente para o navbar
+$GLOBALS['user'] = $user;
 
 $planService = new PlanService();
 $planoSlug = $_GET['plano'] ?? '';
@@ -41,11 +44,24 @@ $planoAtivo = $planService->getActiveSubscription($user['id']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pagamento Confirmado - AIStudy</title>
+    
+    <!-- Aplicar tema ANTES de carregar estilos para evitar flash -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
+    <?php $active = 'planos'; render_navbar($active); ?>
+    
     <div class="container mt-5 mb-5">
         <div class="row justify-content-center">
             <div class="col-md-6">

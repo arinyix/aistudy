@@ -2,9 +2,12 @@
 require_once 'includes/session.php';
 require_once 'classes/PlanService.php';
 require_once 'classes/PaymentGateway.php';
+require_once 'includes/navbar.php';
 
 requireLogin();
 $user = getCurrentUser();
+// Tornar $user disponível globalmente para o navbar
+$GLOBALS['user'] = $user;
 
 $planService = new PlanService();
 $planoSlug = $_GET['plano'] ?? '';
@@ -41,12 +44,17 @@ if ($plano['preco_mensal'] == 0) {
 }
 
 $message = '';
-if ($_POST) {
+if ($_POST && isset($_POST['processar_pagamento'])) {
+    // Log para debug
+    error_log("Checkout POST recebido - User ID: {$user['id']}, Plano ID: {$plano['id']}, Valor: {$plano['preco_mensal']}");
+    
     try {
-        // Processar pagamento com Stripe
-        $metodo = $_POST['metodo_pagamento'] ?? 'card'; // card, pix, boleto
+        // Processar pagamento com Stripe (apenas cartão de crédito)
+        $metodo = 'card'; // Sempre usa cartão de crédito para assinaturas recorrentes
         $gateway = new PaymentGateway('stripe');
+        error_log("Criando ordem de pagamento no Stripe...");
         $result = $gateway->createPaymentOrder($user['id'], $plano['id'], $plano['preco_mensal'], $metodo);
+        error_log("Resultado do Stripe: " . json_encode($result));
         
         if ($result['success']) {
             // Criar assinatura pendente
@@ -64,14 +72,26 @@ if ($_POST) {
             
             if ($assinatura_id) {
                 // Redirecionar para checkout do Stripe
+                error_log("Redirecionando para Stripe Checkout: " . $result['payment_url']);
                 header('Location: ' . $result['payment_url']);
                 exit;
             } else {
+                error_log("Erro: Assinatura não foi criada");
                 $message = '<div class="alert alert-danger">Erro ao criar assinatura. Tente novamente.</div>';
             }
         } else {
             $errorMsg = $result['message'] ?? 'Erro ao processar pagamento. Tente novamente.';
-            $message = '<div class="alert alert-danger">' . htmlspecialchars($errorMsg) . '</div>';
+            $errorDetails = '';
+            
+            // Adicionar detalhes do erro se disponível (apenas em desenvolvimento)
+            if (isset($result['error_code'])) {
+                $errorDetails = '<br><small class="text-muted">Código: ' . htmlspecialchars($result['error_code']) . '</small>';
+            }
+            
+            $message = '<div class="alert alert-danger">' . htmlspecialchars($errorMsg) . $errorDetails . '</div>';
+            
+            // Log detalhado do erro
+            error_log("Erro no checkout - Método: {$metodo}, Erro: " . ($result['error'] ?? 'Desconhecido'));
         }
     } catch (Exception $e) {
         error_log("Erro no checkout: " . $e->getMessage());
@@ -85,18 +105,23 @@ if ($_POST) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout - AIStudy</title>
+    
+    <!-- Aplicar tema ANTES de carregar estilos para evitar flash -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-brain me-2"></i>AIStudy
-            </a>
-        </div>
-    </nav>
+    <?php $active = 'planos'; render_navbar($active); ?>
 
     <div class="container mt-4 mb-5">
         <div class="row justify-content-center">
@@ -125,27 +150,13 @@ if ($_POST) {
                         </div>
                         
                         <?php if ($plano['preco_mensal'] > 0): ?>
-                            <form method="POST">
+                            <form method="POST" action="" id="formCheckout">
+                                <input type="hidden" name="processar_pagamento" value="1">
+                                
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-2"></i>
                                     <strong>Modo de Teste:</strong> Você será redirecionado para o Stripe Checkout. 
-                                    Use cartões de teste ou PIX para simular o pagamento.
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Método de Pagamento:</label>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="metodo_pagamento" id="metodo_card" value="card" checked>
-                                        <label class="form-check-label" for="metodo_card">
-                                            <i class="fas fa-credit-card me-2"></i>Cartão de Crédito ou PIX
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="metodo_pagamento" id="metodo_pix" value="pix">
-                                        <label class="form-check-label" for="metodo_pix">
-                                            <i class="fas fa-qrcode me-2"></i>Apenas PIX
-                                        </label>
-                                    </div>
+                                    Use cartões de teste para simular o pagamento.
                                 </div>
                                 
                                 <div class="alert alert-warning">
@@ -155,7 +166,7 @@ if ($_POST) {
                                 </div>
                                 
                                 <div class="d-grid gap-2">
-                                    <button type="submit" class="btn btn-primary btn-lg">
+                                    <button type="submit" class="btn btn-primary btn-lg" id="btnFinalizarPagamento">
                                         <i class="fas fa-credit-card me-2"></i>Finalizar Pagamento com Stripe
                                     </button>
                                     <a href="planos.php" class="btn btn-outline-secondary">
@@ -163,6 +174,25 @@ if ($_POST) {
                                     </a>
                                 </div>
                             </form>
+                            
+                            <script>
+                            // Prevenir múltiplos cliques e mostrar loading
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const form = document.getElementById('formCheckout');
+                                const btn = document.getElementById('btnFinalizarPagamento');
+                                
+                                if (form && btn) {
+                                    form.addEventListener('submit', function(e) {
+                                        // Desabilitar botão e mostrar loading
+                                        btn.disabled = true;
+                                        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processando...';
+                                        
+                                        // Permitir que o formulário seja submetido normalmente
+                                        return true;
+                                    });
+                                }
+                            });
+                            </script>
                         <?php else: ?>
                             <div class="alert alert-success">
                                 <i class="fas fa-check-circle me-2"></i>

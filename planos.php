@@ -125,7 +125,7 @@ if ($erro === 'precisa_assinar') {
         <div class="text-center mt-5">
             <p class="text-muted">
                 <i class="fas fa-shield-alt me-2"></i>
-                Pagamento seguro via Mercado Pago. Cancele quando quiser.
+                Pagamento seguro via Stripe. Cancele quando quiser.
             </p>
         </div>
     </div>

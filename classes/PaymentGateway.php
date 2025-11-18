@@ -79,6 +79,7 @@ class PaymentGateway {
             
             if ($metodo === 'pix') {
                 // PIX é pagamento único, não assinatura recorrente
+                // Nota: PIX pode não estar disponível em todos os países/contas Stripe
                 $paymentMethodTypes = ['pix'];
                 $mode = 'payment';
             } elseif ($metodo === 'boleto') {
@@ -86,11 +87,14 @@ class PaymentGateway {
                 $paymentMethodTypes = ['boleto'];
                 $mode = 'payment';
             } else {
-                // Padrão: cartão (assinatura recorrente) e PIX (pagamento único)
+                // Padrão: cartão (assinatura recorrente)
                 // Para assinatura recorrente, só cartão funciona
                 $paymentMethodTypes = ['card'];
                 $mode = 'subscription';
             }
+            
+            // Log para debug
+            error_log("Criando sessão Stripe - Método: {$metodo}, Mode: {$mode}, Payment Types: " . implode(', ', $paymentMethodTypes));
             
             // Preparar line_items baseado no modo
             if ($mode === 'subscription') {
@@ -124,8 +128,8 @@ class PaymentGateway {
                 ]];
             }
             
-            // Criar sessão de checkout do Stripe
-            $session = Session::create([
+            // Configurações adicionais para PIX/Boleto
+            $sessionParams = [
                 'payment_method_types' => $paymentMethodTypes,
                 'line_items' => $lineItems,
                 'mode' => $mode,
@@ -139,7 +143,17 @@ class PaymentGateway {
                     'modo_pagamento' => $mode,
                 ],
                 'locale' => 'pt-BR',
-            ]);
+            ];
+            
+            // Para pagamentos PIX/Boleto, adicionar configurações específicas
+            if ($mode === 'payment' && ($metodo === 'pix' || $metodo === 'boleto')) {
+                // PIX e Boleto são pagamentos únicos que expiram
+                // Configurar expiração (opcional, padrão é 24h)
+                // $sessionParams['expires_at'] = time() + (24 * 60 * 60); // 24 horas
+            }
+            
+            // Criar sessão de checkout do Stripe
+            $session = Session::create($sessionParams);
             
             return [
                 'success' => true,
@@ -150,14 +164,37 @@ class PaymentGateway {
             ];
             
         } catch (ApiErrorException $e) {
-            error_log("Erro Stripe API: " . $e->getMessage());
+            $errorMessage = $e->getMessage();
+            $errorCode = $e->getStripeCode() ?? 'unknown';
+            $errorType = $e->getError()->type ?? 'unknown';
+            
+            error_log("Erro Stripe API (método: {$metodo}): " . $errorMessage);
+            error_log("Código do erro: {$errorCode}, Tipo: {$errorType}");
+            
+            // Mensagem mais específica baseada no tipo de erro
+            $userMessage = 'Erro ao criar sessão de pagamento. Tente novamente.';
+            
+            if (strpos($errorMessage, 'pix') !== false || strpos($errorMessage, 'PIX') !== false || 
+                strpos($errorMessage, 'payment_method_types') !== false) {
+                if ($metodo === 'pix') {
+                    $userMessage = 'PIX não está disponível na sua conta Stripe. O PIX requer uma conta Stripe brasileira aprovada. ' .
+                                  'Por favor, use cartão de crédito para testes (sempre funciona). ' .
+                                  'Para habilitar PIX em produção, entre em contato com o suporte do Stripe.';
+                } else {
+                    $userMessage = 'Método de pagamento não suportado. Tente usar cartão de crédito.';
+                }
+            }
+            
             return [
                 'success' => false,
-                'error' => $e->getMessage(),
-                'message' => 'Erro ao criar sessão de pagamento. Tente novamente.'
+                'error' => $errorMessage,
+                'error_code' => $errorCode,
+                'error_type' => $errorType,
+                'message' => $userMessage
             ];
         } catch (Exception $e) {
-            error_log("Erro ao criar pagamento: " . $e->getMessage());
+            error_log("Erro ao criar pagamento (método: {$metodo}): " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
