@@ -23,8 +23,8 @@ if ($_POST) {
         $message = '<div class="alert alert-danger"><i class="fas fa-shield-alt me-2"></i>Token de segurança inválido. Por favor, recarregue a página e tente novamente.</div>';
     } else {
         $action = $_POST['action'] ?? '';
-    
-    if ($action === 'update_profile') {
+        
+        if ($action === 'update_profile') {
         $nome = $_POST['nome'] ?? '';
         $email = $_POST['email'] ?? '';
         $senha_confirmacao = $_POST['senha_confirmacao'] ?? '';
@@ -108,7 +108,11 @@ if ($_POST) {
             $message = '<div class="alert alert-warning">Preencha todos os campos!</div>';
         }
     }
+    }
 }
+
+// Gerar token CSRF para os formulários
+$csrf_token = generateCSRFToken();
 ?>
 
 <!DOCTYPE html>
