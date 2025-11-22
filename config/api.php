@@ -35,19 +35,24 @@ class OpenAIService {
         }
     }
     
-    public function generateStudyPlan($tema, $nivel, $tempoDiario, $diasDisponiveis, $horario) {
+    public function generateStudyPlan($tema, $nivel, $tempoDiario, $diasDisponiveis, $horario, $numeroDias = null) {
         // Buscar vídeos educacionais reais do YouTube
         require_once 'classes/YouTubeService.php';
         $youtubeService = new YouTubeService();
         $videos = $youtubeService->getEducationalVideos($tema, $nivel, 3);
         
-        // Determinar número de dias baseado no nível
-        $diasPorNivel = [
-            'iniciante' => 14, // 2 semanas
-            'intermediario' => 21, // 3 semanas  
-            'avancado' => 28 // 4 semanas
-        ];
-        $totalDias = $diasPorNivel[$nivel] ?? 14;
+        // Usar número de dias fornecido ou calcular baseado no nível
+        if ($numeroDias !== null && $numeroDias > 0) {
+            $totalDias = (int)$numeroDias;
+        } else {
+            // Fallback: determinar número de dias baseado no nível
+            $diasPorNivel = [
+                'iniciante' => 14, // 2 semanas
+                'intermediario' => 21, // 3 semanas  
+                'avancado' => 28 // 4 semanas
+            ];
+            $totalDias = $diasPorNivel[$nivel] ?? 14;
+        }
         
         // Preparar vídeos disponíveis para o ChatGPT
         $videosDisponiveis = json_encode($videos);
@@ -198,8 +203,15 @@ class OpenAIService {
         - Exemplo CORRETO: Um objeto JSON válido começando com chave de abertura
         - Exemplo INCORRETO: Adicionar texto antes ou depois do JSON, ou usar markdown";
 
-        // Aumentar tokens para garantir resposta completa (8000 tokens para planos grandes)
-        return $this->makeAPICall($prompt, 8000);
+        // Aumentar tokens baseado no número de dias (mais dias = mais tokens necessários)
+        // Estimativa: ~150-200 tokens por dia (considerando tarefas, descrições, materiais)
+        // Mínimo 4000, máximo 16000 (limite do modelo)
+        $maxTokens = min(16000, max(4000, $totalDias * 150 + 3000));
+        
+        // Log para debug
+        error_log("generateStudyPlan: totalDias={$totalDias}, maxTokens={$maxTokens}");
+        
+        return $this->makeAPICall($prompt, $maxTokens);
     }
     
     public function generateEnemPlan($dadosEnem) {
@@ -216,14 +228,20 @@ class OpenAIService {
         $pesosDisciplinas = trim($dadosEnem['pesos_disciplinas'] ?? '');
         $dataProva = $dadosEnem['data_prova'] ?? '';
         $ritmoSimulados = $dadosEnem['ritmo_simulados'] ?? 'nenhum';
+        $numeroDias = $dadosEnem['numero_dias'] ?? null;
         
-        // Determinar número de dias baseado no nível
-        $diasPorNivel = [
-            'iniciante' => 90, // 3 meses
-            'intermediario' => 120, // 4 meses
-            'avancado' => 60 // 2 meses (revisão)
-        ];
-        $totalDias = $diasPorNivel[$nivel] ?? 120;
+        // Usar número de dias fornecido ou calcular baseado no nível
+        if ($numeroDias !== null && $numeroDias > 0) {
+            $totalDias = (int)$numeroDias;
+        } else {
+            // Fallback: determinar número de dias baseado no nível
+            $diasPorNivel = [
+                'iniciante' => 90, // 3 meses
+                'intermediario' => 120, // 4 meses
+                'avancado' => 60 // 2 meses (revisão)
+            ];
+            $totalDias = $diasPorNivel[$nivel] ?? 120;
+        }
         
         $areasTexto = !empty($areasPrioritarias) ? implode(', ', $areasPrioritarias) : 'Todas as áreas';
         
@@ -239,9 +257,14 @@ class OpenAIService {
         // Acrescentar regra rígida de campos e estrutura
         $prompt .= "\n\nRegras de estrutura (OBRIGATÓRIO):\n- Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios.\n- NÃO crie campos extras ou diferentes.\n- O JSON final DEVE seguir exatamente o esquema informado.\n- LEMBRE-SE: O array 'dias' DEVE ter EXATAMENTE {$totalDias} elementos.";
 
-        // Aumentar tokens significativamente para garantir resposta completa com todos os dias
-        // Para 120 dias, precisamos de mais tokens (16000 para garantir)
-        $maxTokens = $totalDias > 60 ? 16000 : 12000;
+        // Aumentar tokens baseado no número de dias (mais dias = mais tokens necessários)
+        // Estimativa: ~150-200 tokens por dia (ENEM tem mais conteúdo por dia)
+        // Mínimo 4000, máximo 16000 (limite do modelo)
+        $maxTokens = min(16000, max(4000, $totalDias * 150 + 3000));
+        
+        // Log para debug
+        error_log("generateEnemPlan: totalDias={$totalDias}, maxTokens={$maxTokens}");
+        
         return $this->makeAPICall($prompt, $maxTokens, 0.5);
     }
     
@@ -254,15 +277,21 @@ class OpenAIService {
         $diasDisponiveis = $dadosConcurso['dias_disponiveis'] ?? [];
         $horario = $dadosConcurso['horario_disponivel'] ?? '09:00';
         $dificuldades = $dadosConcurso['dificuldades'] ?? '';
+        $numeroDias = $dadosConcurso['numero_dias'] ?? null;
 
         // Buscar vídeos educacionais reais do YouTube (MESMO PADRÃO DOS OUTROS MÉTODOS)
         require_once 'classes/YouTubeService.php';
         $youtubeService = new YouTubeService();
         $videos = $youtubeService->getEducationalVideos($tipoConcurso, $nivel, 3);
         
-        // Número de dias por nível
-        $diasPorNivel = [ 'iniciante' => 90, 'intermediario' => 120, 'avancado' => 60 ];
-        $totalDias = $diasPorNivel[$nivel] ?? 120;
+        // Usar número de dias fornecido ou calcular baseado no nível
+        if ($numeroDias !== null && $numeroDias > 0) {
+            $totalDias = (int)$numeroDias;
+        } else {
+            // Fallback: número de dias por nível
+            $diasPorNivel = [ 'iniciante' => 90, 'intermediario' => 120, 'avancado' => 60 ];
+            $totalDias = $diasPorNivel[$nivel] ?? 120;
+        }
         
         // Preparar vídeos disponíveis para o ChatGPT (MESMO PADRÃO DOS OUTROS MÉTODOS)
         $videosDisponiveis = json_encode($videos);
@@ -368,9 +397,14 @@ class OpenAIService {
         - Use APENAS aspas duplas (\") para chaves e valores de string
         - NÃO crie menos dias que {$totalDias}";
 
-        // Aumentar tokens significativamente para garantir resposta completa com todos os dias
-        // Para 120 dias, precisamos de mais tokens (16000 para garantir)
-        $maxTokens = $totalDias > 60 ? 16000 : 12000;
+        // Aumentar tokens baseado no número de dias (mais dias = mais tokens necessários)
+        // Estimativa: ~150-200 tokens por dia (Concurso tem mais conteúdo por dia)
+        // Mínimo 4000, máximo 16000 (limite do modelo)
+        $maxTokens = min(16000, max(4000, $totalDias * 150 + 3000));
+        
+        // Log para debug
+        error_log("generateConcursoPlan: totalDias={$totalDias}, maxTokens={$maxTokens}");
+        
         return $this->makeAPICall($prompt, $maxTokens, 0.5, 'json');
     }
     
@@ -489,18 +523,39 @@ class OpenAIService {
             $result = json_decode($response, true);
             
             if (json_last_error() !== JSON_ERROR_NONE) {
+                error_log("ERRO API: JSON inválido na resposta. Resposta completa: " . substr($response, 0, 1000));
                 throw new Exception('Erro ao decodificar JSON da API: ' . json_last_error_msg());
             }
             
             if (isset($result['choices'][0]['message']['content'])) {
                 $content = $result['choices'][0]['message']['content'];
+                
+                // Verificar se o conteúdo não está vazio
+                if (empty(trim($content))) {
+                    error_log("ERRO API: Conteúdo vazio na resposta. Estrutura: " . json_encode($result));
+                    throw new Exception('A API retornou uma resposta vazia. Tente novamente.');
+                }
+                
+                // Verificar se a resposta foi truncada (finish_reason = 'length')
+                $finishReason = $result['choices'][0]['finish_reason'] ?? null;
+                if ($finishReason === 'length') {
+                    error_log("AVISO API: Resposta truncada (finish_reason=length). Tamanho: " . strlen($content) . " caracteres. Considere aumentar max_tokens ou reduzir número de dias.");
+                    // Não lançar exceção, mas logar aviso - pode funcionar mesmo truncado
+                }
+                
+                // Log do tamanho do conteúdo retornado
+                error_log("API retornou conteúdo de " . strlen($content) . " caracteres (finish_reason: " . ($finishReason ?? 'null') . ")");
+                
                 return $content;
             } else {
-                throw new Exception('Resposta inválida da API: ' . $response);
+                error_log("ERRO API: Estrutura de resposta inválida. Resposta completa: " . substr($response, 0, 2000));
+                error_log("Chaves disponíveis: " . (is_array($result) ? implode(', ', array_keys($result)) : 'não é array'));
+                throw new Exception('Resposta inválida da API. A estrutura da resposta não contém o conteúdo esperado.');
             }
         } else {
             $errorData = json_decode($response, true);
             $errorMessage = isset($errorData['error']['message']) ? $errorData['error']['message'] : $response;
+            error_log("ERRO API HTTP {$httpCode}: " . $errorMessage);
             throw new Exception('Erro na API OpenAI (HTTP ' . $httpCode . '): ' . $errorMessage);
         }
     }

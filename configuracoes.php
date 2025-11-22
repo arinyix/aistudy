@@ -3,6 +3,7 @@ require_once 'config/database.php';
 require_once 'classes/User.php';
 require_once 'includes/session.php';
 require_once 'includes/navbar.php';
+require_once 'includes/csrf.php';
 
 requireLogin();
 
@@ -16,7 +17,12 @@ $user_obj->id = $user['id'];
 $message = '';
 
 if ($_POST) {
-    $action = $_POST['action'] ?? '';
+    // Validar CSRF token
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    if (!validateCSRFToken($csrf_token)) {
+        $message = '<div class="alert alert-danger"><i class="fas fa-shield-alt me-2"></i>Token de segurança inválido. Por favor, recarregue a página e tente novamente.</div>';
+    } else {
+        $action = $_POST['action'] ?? '';
     
     if ($action === 'update_profile') {
         $nome = $_POST['nome'] ?? '';
@@ -171,6 +177,7 @@ if ($_POST) {
                     <div class="settings-card-body">
                         <form method="POST" id="profileForm">
                             <input type="hidden" name="action" value="update_profile">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                             
                             <div class="settings-form-group">
                                 <label for="nome" class="settings-label">
@@ -243,6 +250,7 @@ if ($_POST) {
                     <div class="settings-card-body">
                         <form method="POST" id="passwordForm">
                             <input type="hidden" name="action" value="change_password">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                             
                             <div class="settings-form-group">
                                 <label for="senha_atual" class="settings-label">

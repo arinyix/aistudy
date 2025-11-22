@@ -1,0 +1,26 @@
+# Configuração do Banco de Dados
+DB_HOST=localhost
+DB_NAME=aistudy
+DB_USER=root
+DB_PASS=
+
+# Configuração da API OpenAI
+OPENAI_API_KEY=sk-sua-chave-openai-aqui
+OPENAI_API_URL=https://api.openai.com/v1/chat/completions
+
+# Configuração da API do YouTube
+YOUTUBE_API_KEY=sua-chave-youtube-aqui
+
+# Configuração do Stripe
+STRIPE_SECRET_KEY=sk_test_sua-chave-secreta-stripe-aqui
+STRIPE_PUBLISHABLE_KEY=pk_test_sua-chave-publica-stripe-aqui
+STRIPE_WEBHOOK_SECRET=whsec_seu-webhook-secret-aqui
+
+# Configurações Gerais
+DEBUG=false
+APP_ENV=production
+APP_URL=http://localhost/aistudy
+
+# Timezone
+TIMEZONE=America/Sao_Paulo
+

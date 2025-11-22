@@ -10,6 +10,7 @@ require_once 'classes/Routine.php';
 require_once 'classes/Task.php';
 require_once 'includes/session.php';
 require_once 'includes/navbar.php';
+require_once 'includes/csrf.php';
 
 // Normalizador de estrutura para reduzir erros de esquema
 function normalizeStudyPlan($data) {
@@ -206,6 +207,14 @@ if (!in_array($tipo_rotina, ['geral', 'enem', 'concurso'])) {
 
 // Processamento apenas via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validar CSRF token
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    if (!validateCSRFToken($csrf_token)) {
+        setFlash('error', 'Token de segurança inválido. Por favor, recarregue a página e tente novamente.');
+        header('Location: criar-rotina.php?tipo=' . urlencode($tipo_rotina), true, 303);
+        exit;
+    }
+    
     $returnTo = $_POST['return_to'] ?? ($tipo_rotina === 'enem' ? 'modo-enem.php' : ($tipo_rotina === 'concurso' ? 'modo-concurso.php' : 'criar-rotina.php'));
 
     $tema = $_POST['tema'] ?? '';
@@ -213,9 +222,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tempo_diario = $_POST['tempo_diario'] ?? '';
     $dias_disponiveis = $_POST['dias_disponiveis'] ?? [];
     $horario_disponivel = $_POST['horario_disponivel'] ?? '';
+    $numero_dias = isset($_POST['numero_dias']) ? (int)$_POST['numero_dias'] : null;
+    
+    // Validar número de dias
+    if ($numero_dias === null || $numero_dias < 1 || $numero_dias > 365) {
+        setFlash('error', 'Número de dias inválido. Deve ser entre 1 e 365 dias.');
+        header('Location: ' . $returnTo, true, 303);
+        exit;
+    }
     
     // Validar campos básicos
-    $camposValidos = ($tema || $tipo_rotina !== 'geral') && $nivel && $tempo_diario && !empty($dias_disponiveis) && $horario_disponivel;
+    $camposValidos = ($tema || $tipo_rotina !== 'geral') && $nivel && $tempo_diario && !empty($dias_disponiveis) && $horario_disponivel && $numero_dias;
     
     // Validações específicas por tipo
     if ($tipo_rotina === 'enem') {
@@ -299,7 +316,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'nivel' => $nivel,
                     'tempo_diario' => $tempo_diario,
                     'dias_disponiveis' => $dias_disponiveis,
-                    'horario_disponivel' => $horario_disponivel
+                    'horario_disponivel' => $horario_disponivel,
+                    'numero_dias' => $numero_dias
                 ]);
                 $plano = $openai->generateEnemPlan($dadosEnem);
             } elseif ($tipo_rotina === 'concurso') {
@@ -307,12 +325,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'nivel' => $nivel,
                     'tempo_diario' => $tempo_diario,
                     'dias_disponiveis' => $dias_disponiveis,
-                    'horario_disponivel' => $horario_disponivel
+                    'horario_disponivel' => $horario_disponivel,
+                    'numero_dias' => $numero_dias
                 ]);
                 $plano = $openai->generateConcursoPlan($dadosConcurso);
             } else {
-                $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel);
+                $plano = $openai->generateStudyPlan($tema, $nivel, $tempo_diario, $dias_disponiveis, $horario_disponivel, $numero_dias);
             }
+            
+            // Verificar se a resposta não está vazia
+            if (empty($plano) || !is_string($plano)) {
+                error_log("ERRO: Resposta da API está vazia ou não é string (tipo: {$tipo_rotina})");
+                throw new Exception('A API retornou uma resposta vazia. Verifique sua conexão e tente novamente.');
+            }
+            
+            // Log do tamanho da resposta
+            error_log("TAMANHO DA RESPOSTA (tipo: {$tipo_rotina}): " . strlen($plano) . " caracteres");
             
             // Limpar resposta de possíveis markdown code blocks
             $planoLimpo = $plano;
@@ -334,18 +362,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log("RESPOSTA IA BRUTA (tipo: {$tipo_rotina}, primeiros 1000 chars): " . substr($plano, 0, 1000));
             error_log("RESPOSTA IA LIMPA (tipo: {$tipo_rotina}, primeiros 500 chars): " . substr($planoLimpo, 0, 500));
             
+            // Verificar se planoLimpo não está vazio após limpeza
+            if (empty(trim($planoLimpo))) {
+                error_log("ERRO: planoLimpo está vazio após limpeza (tipo: {$tipo_rotina})");
+                throw new Exception('A resposta da API está vazia após processamento. Tente novamente.');
+            }
+            
             // Tentar decodificar JSON diretamente (usar versão limpa)
             $plano_data = json_decode($planoLimpo, true);
             $jsonError = json_last_error();
             
-            if ($jsonError !== JSON_ERROR_NONE) {
+            if ($jsonError !== JSON_ERROR_NONE || !is_array($plano_data)) {
                 error_log("ERRO JSON DECODE (tipo: {$tipo_rotina}): " . json_last_error_msg());
+                error_log("RESPOSTA LIMPA COMPLETA (últimos 2000 chars): " . substr($planoLimpo, -2000));
+                
                 // Tentar reparar JSON truncado (adicionar chaves de fechamento faltantes)
                 $planoReparado = $plano;
                 $abreChaves = substr_count($planoReparado, '{');
                 $fechaChaves = substr_count($planoReparado, '}');
                 $abreColchetes = substr_count($planoReparado, '[');
                 $fechaColchetes = substr_count($planoReparado, ']');
+                
+                error_log("CONTAGEM DE CHAVES: {={$abreChaves}, }={$fechaChaves}, [={$abreColchetes}, ]={$fechaColchetes}");
                 
                 if ($abreChaves > $fechaChaves || $abreColchetes > $fechaColchetes) {
                     // Adicionar fechamentos faltantes
@@ -359,13 +397,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $plano_data = json_decode($planoReparado, true);
                     if (json_last_error() !== JSON_ERROR_NONE || !is_array($plano_data)) {
-                        $plano_data = flexibleJsonDecode($planoLimpo);
+                        // Tentar decoder flexível se existir
+                        if (function_exists('flexibleJsonDecode')) {
+                            $plano_data = flexibleJsonDecode($planoLimpo);
+                        } else {
+                            error_log("ERRO: flexibleJsonDecode não existe");
+                            throw new Exception('Erro ao decodificar resposta da API. A resposta pode estar incompleta ou malformada.');
+                        }
                     }
                 } else {
                     // Tentar decoder flexível (usar versão limpa)
-                    $plano_data = flexibleJsonDecode($planoLimpo);
+                    if (function_exists('flexibleJsonDecode')) {
+                        $plano_data = flexibleJsonDecode($planoLimpo);
+                    } else {
+                        error_log("ERRO: flexibleJsonDecode não existe e JSON não pode ser decodificado");
+                        throw new Exception('Erro ao decodificar resposta da API. Verifique os logs para mais detalhes.');
+                    }
+                }
+                
+                // Se ainda não conseguiu decodificar
+                if (!is_array($plano_data) || empty($plano_data)) {
+                    error_log("ERRO CRÍTICO: Não foi possível decodificar JSON após todas as tentativas");
+                    throw new Exception('Não foi possível processar a resposta da API. A resposta pode estar incompleta ou malformada. Tente novamente com menos dias ou verifique sua conexão.');
                 }
             }
+            
+            // Log de sucesso
+            error_log("SUCESSO: JSON decodificado (tipo: {$tipo_rotina}, número de dias esperado: {$numero_dias})");
         } catch (Exception $e) {
             $errorMsg = $e->getMessage();
             
@@ -459,11 +517,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 error_log("Estrutura recebida (primeiros 500 chars): " . substr(json_encode($plano_data), 0, 500));
             }
             
+            // Mensagem de erro mais específica
             $errorMsg = 'Estrutura do plano inválida. A IA não retornou a estrutura exigida. ';
-            if (!empty($debugInfo)) {
-                $errorMsg .= 'Detalhes: ' . implode(', ', array_slice($debugInfo, 0, 3));
+            
+            if (!$plano_data) {
+                $errorMsg = 'A API não retornou dados válidos. ';
+            } elseif (!is_array($plano_data)) {
+                $errorMsg = 'A resposta da API não está no formato esperado. ';
+            } elseif (!isset($plano_data['dias'])) {
+                $errorMsg = 'A resposta da API não contém o campo "dias". ';
+            } elseif (!is_array($plano_data['dias'])) {
+                $errorMsg = 'O campo "dias" não é um array válido. ';
+            } elseif ($diasValidos === 0) {
+                $errorMsg = 'Nenhum dia válido foi encontrado na resposta. ';
             }
-            $errorMsg .= ' Tente novamente.';
+            
+            if (!empty($debugInfo)) {
+                $errorMsg .= 'Detalhes: ' . implode(', ', array_slice($debugInfo, 0, 3)) . '. ';
+            }
+            
+            $errorMsg .= 'Sugestão: Tente novamente com menos dias (ex: 7-14 dias) ou verifique sua conexão com a internet.';
             
             setFlash('error', $errorMsg);
             header('Location: ' . $returnTo, true, 303);
@@ -568,7 +641,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="card-body">
                         <?php echo $message; ?>
                         
+                        <?php 
+                        // Gerar token CSRF para o formulário
+                        if (!isset($csrf_token)) {
+                            $csrf_token = generateCSRFToken();
+                        }
+                        ?>
                         <form method="POST">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="tema" class="form-label">Tema/Assunto *</label>
@@ -587,14 +667,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             
                             <div class="row">
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
                                     <label for="tempo_diario" class="form-label">Tempo Diário (minutos) *</label>
                                     <input type="number" class="form-control" id="tempo_diario" name="tempo_diario" 
                                            min="15" max="300" placeholder="Ex: 60" required>
                                 </div>
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
                                     <label for="horario_disponivel" class="form-label">Horário Disponível *</label>
                                     <input type="time" class="form-control" id="horario_disponivel" name="horario_disponivel" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="numero_dias" class="form-label">Número de Dias *</label>
+                                    <input type="number" class="form-control" id="numero_dias" name="numero_dias" 
+                                           min="1" max="365" value="14" placeholder="Ex: 7" required>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Quantos dias de estudo você deseja?
+                                    </small>
                                 </div>
                             </div>
                             

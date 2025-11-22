@@ -83,11 +83,20 @@ $message = '';
                             </div>
                             
                             <div class="row">
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
                                     <label for="horario_disponivel" class="form-label">Horário Disponível *</label>
                                     <input type="time" class="form-control" id="horario_disponivel" name="horario_disponivel" required>
                                 </div>
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
+                                    <label for="numero_dias" class="form-label">Número de Dias *</label>
+                                    <input type="number" class="form-control" id="numero_dias" name="numero_dias" 
+                                           min="1" max="365" value="120" placeholder="Ex: 90" required>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Quantos dias de estudo você deseja?
+                                    </small>
+                                </div>
+                                <div class="col-md-4 mb-3">
                                     <label for="dificuldades" class="form-label">Dificuldades Principais (opcional)</label>
                                     <textarea class="form-control" id="dificuldades" name="dificuldades" rows="2" 
                                               placeholder="Ex: Tenho dificuldade em Direito Constitucional"></textarea>

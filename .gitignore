@@ -1,27 +1,60 @@
-# Arquivos de ambiente - NÃO COMMITAR!
+# Arquivos de ambiente
 .env
+.env.local
+.env.*.local
+
+# Dependências
+/vendor/
+/node_modules/
 
 # Cache
-cache/*.json
-cache/*.cache
-
-# Logs
+/cache/
+*.cache
 *.log
-error_log
 
-# Sistema operacional
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# IDE
+# Arquivos de IDE
 .idea/
 .vscode/
-*.sublime-project
-*.sublime-workspace
+*.swp
+*.swo
+*~
+.DS_Store
 
 # Arquivos temporários
 *.tmp
 *.temp
-~$*
+*.bak
+*.backup
 
+# Arquivos de upload (se houver)
+/uploads/
+/storage/
+
+# Arquivos de configuração local
+config/local.php
+config/local.ini
+
+# Logs
+*.log
+logs/
+error_log
+
+# Arquivos do sistema operacional
+Thumbs.db
+desktop.ini
+
+# Arquivos de teste
+/tests/_output/
+/tests/_support/_generated/
+
+# Arquivos do Stripe CLI (se necessário manter local)
+# bin/stripe (descomente se não quiser versionar)
+
+# Arquivos de build
+/build/
+/dist/
+
+# Arquivos de backup do banco
+*.sql.gz
+*.sql.bak
+backup_*.sql
