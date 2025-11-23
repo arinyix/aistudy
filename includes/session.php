@@ -6,7 +6,7 @@
 // Configurar segurança de sessão ANTES de iniciar
 ini_set('session.cookie_httponly', 1); // Previne acesso via JavaScript
 ini_set('session.use_strict_mode', 1); // Previne session fixation
-ini_set('session.cookie_samesite', 'Strict'); // Proteção CSRF adicional
+ini_set('session.cookie_samesite', 'Lax'); // Lax permite POST entre páginas do mesmo site
 
 // Se estiver usando HTTPS, habilitar cookie seguro
 if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
@@ -23,12 +23,15 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Regenerar ID de sessão periodicamente (a cada 30 minutos)
-if (!isset($_SESSION['last_regeneration'])) {
-    $_SESSION['last_regeneration'] = time();
-    session_regenerate_id(true);
-} elseif (time() - $_SESSION['last_regeneration'] > 1800) {
-    session_regenerate_id(true);
-    $_SESSION['last_regeneration'] = time();
+// NÃO regenerar durante requisições POST para evitar problemas com CSRF tokens
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (!isset($_SESSION['last_regeneration'])) {
+        $_SESSION['last_regeneration'] = time();
+        session_regenerate_id(true);
+    } elseif (time() - $_SESSION['last_regeneration'] > 1800) {
+        session_regenerate_id(true);
+        $_SESSION['last_regeneration'] = time();
+    }
 }
 
 function isLoggedIn() {

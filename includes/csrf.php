@@ -25,12 +25,24 @@ function generateCSRFToken(): string {
  * @return bool True se válido, False caso contrário
  */
 function validateCSRFToken(?string $token): bool {
+    // Verificar se a sessão está ativa
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
     if (empty($token) || !isset($_SESSION['csrf_token'])) {
+        error_log("CSRF Validation: Token vazio ou não existe na sessão. Token recebido: " . ($token ? 'sim' : 'não') . ", Sessão tem token: " . (isset($_SESSION['csrf_token']) ? 'sim' : 'não'));
         return false;
     }
     
     // Comparação segura (timing-safe)
-    return hash_equals($_SESSION['csrf_token'], $token);
+    $isValid = hash_equals($_SESSION['csrf_token'], $token);
+    
+    if (!$isValid) {
+        error_log("CSRF Validation: Tokens não coincidem. Token recebido (primeiros 10 chars): " . substr($token, 0, 10) . ", Token sessão (primeiros 10 chars): " . substr($_SESSION['csrf_token'], 0, 10));
+    }
+    
+    return $isValid;
 }
 
 /**

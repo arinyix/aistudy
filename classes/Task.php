@@ -240,5 +240,127 @@ class Task {
         $resumo = $this->getResumo($task_id, $user_id);
         return !empty($resumo);
     }
+    
+    /**
+     * Salvar exercícios markdown na tarefa
+     */
+    public function saveExercicios($task_id, $user_id, $exercicios_markdown) {
+        // Verificar se a tarefa pertence ao usuário
+        $checkQuery = "SELECT t.id FROM tasks t 
+                      JOIN routines r ON t.routine_id = r.id 
+                      WHERE t.id = :task_id AND r.user_id = :user_id";
+        
+        $checkStmt = $this->conn->prepare($checkQuery);
+        $checkStmt->bindParam(":task_id", $task_id);
+        $checkStmt->bindParam(":user_id", $user_id);
+        $checkStmt->execute();
+        
+        if ($checkStmt->rowCount() === 0) {
+            return false;
+        }
+        
+        // Atualizar exercícios (usando resumo_markdown temporariamente ou criar coluna separada)
+        // Por enquanto, vamos usar uma coluna separada se existir, senão usar um campo JSON
+        // Verificar se a coluna existe
+        $checkColumnQuery = "SHOW COLUMNS FROM " . $this->table_name . " LIKE 'exercicios_markdown'";
+        $checkColumnStmt = $this->conn->prepare($checkColumnQuery);
+        $checkColumnStmt->execute();
+        $columnExists = $checkColumnStmt->rowCount() > 0;
+        
+        if ($columnExists) {
+            // Usar coluna dedicada
+            $query = "UPDATE " . $this->table_name . " 
+                      SET exercicios_markdown = :exercicios_markdown,
+                          updated_at = CURRENT_TIMESTAMP
+                      WHERE id = :task_id";
+        } else {
+            // Usar material_estudo JSON para armazenar (temporário até criar coluna)
+            // Buscar material atual
+            $getMaterialQuery = "SELECT material_estudo FROM " . $this->table_name . " WHERE id = :task_id";
+            $getMaterialStmt = $this->conn->prepare($getMaterialQuery);
+            $getMaterialStmt->bindParam(":task_id", $task_id);
+            $getMaterialStmt->execute();
+            $material = $getMaterialStmt->fetch(PDO::FETCH_ASSOC);
+            
+            $materialData = json_decode($material['material_estudo'] ?? '{}', true);
+            if (!is_array($materialData)) {
+                $materialData = [];
+            }
+            $materialData['exercicios_markdown'] = $exercicios_markdown;
+            
+            $query = "UPDATE " . $this->table_name . " 
+                      SET material_estudo = :material_estudo,
+                          updated_at = CURRENT_TIMESTAMP
+                      WHERE id = :task_id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":material_estudo", json_encode($materialData));
+            $stmt->bindParam(":task_id", $task_id);
+            return $stmt->execute();
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":exercicios_markdown", $exercicios_markdown);
+        $stmt->bindParam(":task_id", $task_id);
+        
+        return $stmt->execute();
+    }
+    
+    /**
+     * Obter exercícios markdown da tarefa
+     */
+    public function getExercicios($task_id, $user_id) {
+        // Verificar se existe coluna dedicada
+        $checkColumnQuery = "SHOW COLUMNS FROM " . $this->table_name . " LIKE 'exercicios_markdown'";
+        $checkColumnStmt = $this->conn->prepare($checkColumnQuery);
+        $checkColumnStmt->execute();
+        $columnExists = $checkColumnStmt->rowCount() > 0;
+        
+        if ($columnExists) {
+            $query = "SELECT t.exercicios_markdown 
+                      FROM tasks t 
+                      JOIN routines r ON t.routine_id = r.id 
+                      WHERE t.id = :task_id AND r.user_id = :user_id";
+        } else {
+            // Buscar do material_estudo JSON
+            $query = "SELECT t.material_estudo 
+                      FROM tasks t 
+                      JOIN routines r ON t.routine_id = r.id 
+                      WHERE t.id = :task_id AND r.user_id = :user_id";
+        }
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":task_id", $task_id);
+        $stmt->bindParam(":user_id", $user_id);
+        $stmt->execute();
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result) {
+            if ($columnExists && isset($result['exercicios_markdown'])) {
+                $exercicios = $result['exercicios_markdown'];
+                if ($exercicios !== null && $exercicios !== '' && trim($exercicios) !== '') {
+                    return $exercicios;
+                }
+            } elseif (isset($result['material_estudo'])) {
+                $material = json_decode($result['material_estudo'], true);
+                if (is_array($material) && isset($material['exercicios_markdown'])) {
+                    $exercicios = $material['exercicios_markdown'];
+                    if ($exercicios !== null && $exercicios !== '' && trim($exercicios) !== '') {
+                        return $exercicios;
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Verificar se a tarefa já tem exercícios salvos
+     */
+    public function hasExercicios($task_id, $user_id) {
+        $exercicios = $this->getExercicios($task_id, $user_id);
+        return !empty($exercicios);
+    }
 }
 ?>

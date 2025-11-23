@@ -197,9 +197,13 @@ $message = '';
                                                                             onclick="showMaterials(<?php echo htmlspecialchars(json_encode($material)); ?>)">
                                                                         <i class="fas fa-book-open me-1"></i>Ver Materiais
                                                                     </button>
-                                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                                    <button class="btn btn-sm btn-outline-primary me-2" 
                                                                             onclick="gerarResumoAuxiliar(<?php echo $tarefa['id']; ?>, '<?php echo htmlspecialchars($tarefa['titulo']); ?>')">
                                                                         <i class="fas fa-file-pdf me-1"></i>Resumo Auxiliar
+                                                                    </button>
+                                                                    <button class="btn btn-sm btn-outline-success" 
+                                                                            onclick="gerarListaExercicios(<?php echo $tarefa['id']; ?>, '<?php echo htmlspecialchars($tarefa['titulo']); ?>')">
+                                                                        <i class="fas fa-tasks me-1"></i>Lista de Exercícios
                                                                     </button>
                                                                 </div>
                                                             <?php endif; ?>
@@ -276,6 +280,39 @@ $message = '';
                         <i class="fas fa-print me-1"></i>Imprimir/Salvar PDF
                     </button>
                     <button type="button" class="btn btn-primary" id="downloadHTMLBtn" style="display:none;">
+                        <i class="fas fa-download me-1"></i>Download HTML
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Lista de Exercícios (Fullscreen) -->
+    <div class="modal fade" id="exerciciosModal" tabindex="-1" aria-labelledby="exerciciosModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content resumo-modal-content">
+                <div class="modal-header resumo-modal-header">
+                    <h5 class="modal-title" id="exerciciosModalLabel">
+                        <i class="fas fa-tasks me-2"></i>Lista de Exercícios
+                    </h5>
+                    <button type="button" class="btn-close resumo-modal-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="exerciciosContent" style="padding: 2rem;">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Gerando exercícios...</span>
+                        </div>
+                        <p class="mt-3 fs-5">Gerando lista de exercícios... Isso pode levar alguns segundos.</p>
+                    </div>
+                </div>
+                <div class="modal-footer resumo-modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Fechar
+                    </button>
+                    <button type="button" class="btn btn-success" id="downloadExerciciosPDFBtn" style="display:none;" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i>Imprimir/Salvar PDF
+                    </button>
+                    <button type="button" class="btn btn-primary" id="downloadExerciciosHTMLBtn" style="display:none;">
                         <i class="fas fa-download me-1"></i>Download HTML
                     </button>
                 </div>
@@ -677,6 +714,252 @@ $message = '';
                    `;
                } else {
                    alert('Erro ao gerar resumo: ' + errorMessage);
+               }
+           });
+       }
+       
+       function gerarListaExercicios(taskId, topico) {
+           console.log('Gerando lista de exercícios para task:', taskId, 'tópico:', topico);
+           
+           const modal = new bootstrap.Modal(document.getElementById('exerciciosModal'));
+           let modalShown = false;
+           let statusInterval = null;
+           let timeoutId = null;
+           
+           // Função para mostrar o modal de loading (só se necessário)
+           function showLoadingModal() {
+               if (modalShown) return;
+               modalShown = true;
+               
+               modal.show();
+               
+               document.getElementById('exerciciosContent').innerHTML = `
+                   <div class="text-center py-5">
+                       <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+                           <span class="visually-hidden">Gerando exercícios...</span>
+                       </div>
+                       <h5 class="mt-4 mb-2">Gerando Lista de Exercícios</h5>
+                       <p class="text-muted mb-3">Isso pode levar 30-90 segundos...</p>
+                       <div class="progress" style="max-width: 400px; margin: 0 auto;">
+                           <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 100%"></div>
+                       </div>
+                       <p class="mt-3 small text-muted" id="exerciciosLoadingStatus">Aguardando resposta da API...</p>
+                   </div>
+               `;
+               document.getElementById('downloadExerciciosPDFBtn').style.display = 'none';
+               document.getElementById('downloadExerciciosHTMLBtn').style.display = 'none';
+               
+               // Atualizar status de loading
+               let statusMessages = [
+                   'Aguardando resposta da API...',
+                   'Processando conteúdo...',
+                   'Gerando exercícios variados...',
+                   'Quase finalizado...'
+               ];
+               let statusIndex = 0;
+               statusInterval = setInterval(() => {
+                   const statusEl = document.getElementById('exerciciosLoadingStatus');
+                   if (statusEl) {
+                       statusEl.textContent = statusMessages[statusIndex % statusMessages.length];
+                       statusIndex++;
+                   }
+               }, 2000);
+               
+               // Armazenar interval para limpar depois
+               window.exerciciosLoadingInterval = statusInterval;
+           }
+           
+           // Função para abrir os exercícios no visualizador
+           function openExerciciosViewer(content) {
+               // Fechar modal se estiver aberto
+               if (modalShown) {
+                   modal.hide();
+               }
+               
+               // Limpar interval se existir
+               if (statusInterval) {
+                   clearInterval(statusInterval);
+               }
+               if (window.exerciciosLoadingInterval) {
+                   clearInterval(window.exerciciosLoadingInterval);
+               }
+               
+               // Sempre usar POST para enviar o conteúdo (mais seguro e sem limite de tamanho)
+               // Passar referrer para poder voltar depois
+               const currentUrl = window.location.href;
+               const form = document.createElement('form');
+               form.method = 'POST';
+               form.action = 'exercicios-pdf.php?task_id=' + taskId + '&referrer=' + encodeURIComponent(currentUrl);
+               form.target = '_blank';
+               form.style.display = 'none';
+               
+               const input = document.createElement('input');
+               input.type = 'hidden';
+               input.name = 'content';
+               input.value = content;
+               
+               form.appendChild(input);
+               document.body.appendChild(form);
+               
+               // Submeter formulário
+               form.submit();
+               
+               // Remover formulário após um delay
+               setTimeout(() => {
+                   if (form.parentNode) {
+                       document.body.removeChild(form);
+                   }
+               }, 1000);
+           }
+           
+           // Fazer requisição PRIMEIRO (sem mostrar modal imediatamente)
+           const controller = new AbortController();
+           
+           // Se a requisição demorar mais de 500ms, mostrar modal de loading
+           const showModalTimeout = setTimeout(() => {
+               showLoadingModal();
+           }, 500);
+           
+           // Timeout para abortar requisição se demorar muito
+           timeoutId = setTimeout(() => {
+               controller.abort();
+               if (statusInterval) {
+                   clearInterval(statusInterval);
+               }
+               if (window.exerciciosLoadingInterval) {
+                   clearInterval(window.exerciciosLoadingInterval);
+               }
+               // Mostrar mensagem de timeout
+               if (modalShown) {
+                   document.getElementById('exerciciosContent').innerHTML = `
+                       <div class="alert alert-warning">
+                           <i class="fas fa-clock me-2"></i>
+                           <strong>A requisição está demorando mais que o esperado.</strong>
+                           <br><br>
+                           <p>A API pode estar sobrecarregada ou sua conexão está lenta.</p>
+                           <button class="btn btn-sm btn-success" onclick="gerarListaExercicios(${taskId}, '${topico}')">
+                               <i class="fas fa-redo me-1"></i>Tentar Novamente
+                           </button>
+                       </div>
+                   `;
+               }
+           }, 180000); // 3 minutos
+          
+           fetch('gerar-exercicios.php', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json',
+               },
+               body: JSON.stringify({ task_id: taskId }),
+               signal: controller.signal
+           })
+            .then(response => {
+               clearTimeout(showModalTimeout); // Cancelar timeout do modal
+               clearTimeout(timeoutId);
+               // Limpar interval de status
+               if (statusInterval) {
+                   clearInterval(statusInterval);
+               }
+               if (window.exerciciosLoadingInterval) {
+                   clearInterval(window.exerciciosLoadingInterval);
+               }
+               
+               return response.text();
+           })
+            .then(text => {
+               console.log('Response text:', text);
+               try {
+                   const data = JSON.parse(text);
+                   console.log('Parsed data:', data);
+                   console.log('Cached:', data.cached);
+                   
+                   if (data.success && data.content) {
+                       console.log('Conteúdo recebido com sucesso. Tamanho:', data.content.length, 'caracteres');
+                       
+                       // Se os exercícios já estavam em cache, não mostrar modal (ou fechar se já mostrou)
+                       if (data.cached === true) {
+                           console.log('✅ Exercícios recuperados do cache - abrindo diretamente sem modal');
+                           // Se o modal ainda não foi mostrado (resposta rápida), não mostrar
+                           if (!modalShown) {
+                               clearTimeout(showModalTimeout);
+                           }
+                           // Abrir exercícios diretamente
+                           openExerciciosViewer(data.content);
+                       } else {
+                           // Se não estava em cache, pode mostrar status de "Abrindo visualizador"
+                           if (modalShown) {
+                               const statusEl = document.getElementById('exerciciosLoadingStatus');
+                               if (statusEl) {
+                                   statusEl.textContent = 'Abrindo visualizador...';
+                               }
+                           }
+                           // Abrir exercícios
+                           setTimeout(() => {
+                               openExerciciosViewer(data.content);
+                           }, 300);
+                       }
+                   } else {
+                       // Mostrar erro
+                       if (modalShown) {
+                           document.getElementById('exerciciosContent').innerHTML = `
+                               <div class="alert alert-danger">
+                                   <i class="fas fa-exclamation-triangle me-2"></i>
+                                   Erro ao gerar exercícios: ${data.message || 'Erro desconhecido'}
+                               </div>
+                           `;
+                       } else {
+                           alert('Erro ao gerar exercícios: ' + (data.message || 'Erro desconhecido'));
+                       }
+                   }
+               } catch (e) {
+                   console.error('Error parsing JSON:', e);
+                   if (modalShown) {
+                       document.getElementById('exerciciosContent').innerHTML = `
+                           <div class="alert alert-danger">
+                               <i class="fas fa-exclamation-triangle me-2"></i>
+                               Erro ao processar resposta. Verifique o console para detalhes.
+                           </div>
+                       `;
+                   } else {
+                       alert('Erro ao processar resposta. Verifique o console para detalhes.');
+                   }
+               }
+           })
+           .catch(error => {
+               clearTimeout(showModalTimeout); // Cancelar timeout do modal
+               clearTimeout(timeoutId);
+               
+               // Limpar interval de status
+               if (statusInterval) {
+                   clearInterval(statusInterval);
+               }
+               if (window.exerciciosLoadingInterval) {
+                   clearInterval(window.exerciciosLoadingInterval);
+               }
+               
+               let errorMessage = 'Erro desconhecido';
+               if (error.name === 'AbortError') {
+                   errorMessage = 'Requisição cancelada';
+               } else if (error.message) {
+                   errorMessage = error.message;
+               } else {
+                   errorMessage += '. Verifique sua conexão e tente novamente.';
+               }
+               
+               // Mostrar erro no modal ou em alert
+               if (modalShown) {
+                   document.getElementById('exerciciosContent').innerHTML = `
+                       <div class="alert alert-danger">
+                           <i class="fas fa-exclamation-triangle me-2"></i>
+                           <strong>Erro:</strong> ${errorMessage}
+                           <br><br>
+                           <button class="btn btn-sm btn-success" onclick="gerarListaExercicios(${taskId}, '${topico}')">
+                               <i class="fas fa-redo me-1"></i>Tentar Novamente
+                           </button>
+                       </div>
+                   `;
+               } else {
+                   alert('Erro ao gerar exercícios: ' + errorMessage);
                }
            });
        }

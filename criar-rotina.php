@@ -210,8 +210,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validar CSRF token
     $csrf_token = $_POST['csrf_token'] ?? '';
     if (!validateCSRFToken($csrf_token)) {
+        // Log para debug
+        error_log("CSRF Token validation failed. Token recebido: " . ($csrf_token ? substr($csrf_token, 0, 10) . '...' : 'vazio'));
+        error_log("Token na sessão: " . (isset($_SESSION['csrf_token']) ? substr($_SESSION['csrf_token'], 0, 10) . '...' : 'não existe'));
+        error_log("Session ID: " . session_id());
+        
         setFlash('error', 'Token de segurança inválido. Por favor, recarregue a página e tente novamente.');
-        header('Location: criar-rotina.php?tipo=' . urlencode($tipo_rotina), true, 303);
+        $returnTo = $_POST['return_to'] ?? ($tipo_rotina === 'enem' ? 'modo-enem.php' : ($tipo_rotina === 'concurso' ? 'modo-concurso.php' : 'criar-rotina.php'));
+        header('Location: ' . $returnTo, true, 303);
         exit;
     }
     
@@ -625,6 +631,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
+    <style>
+        /* Loading Overlay Styles - Prevenir piscar */
+        #loadingOverlay {
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            position: fixed !important;
+            z-index: 99999 !important;
+            pointer-events: auto !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+        }
+
+        #loadingOverlay * {
+            pointer-events: auto !important;
+        }
+
+        body.overlay-active {
+            overflow: hidden !important;
+        }
+
+        body.overlay-active #loadingOverlay,
+        body.overlay-active #loadingOverlay * {
+            pointer-events: auto !important;
+        }
+    </style>
 </head>
 <body>
     <?php $active = ''; render_navbar($active); ?>
@@ -750,7 +787,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </button>
                             </div>
                             
-                            <div id="loadingOverlay" style="display: none; position: fixed; inset: 0; background: rgba(5,10,25,0.85); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center;">
+                            <div id="loadingOverlay" style="display: none; position: fixed; inset: 0; background: rgba(5,10,25,0.85); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; pointer-events: auto;">
                                 <div class="text-white" style="width: 520px; max-width: 92vw; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.35);">
                                     <div style="padding: 22px 24px 8px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.06);">
                                         <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem;"></div>
@@ -805,6 +842,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 alert('Selecione pelo menos um dia da semana disponível.');
                 return;
             }
+            
+            // Não prevenir o envio - deixar o formulário ser submetido normalmente
             const overlay = document.getElementById('loadingOverlay');
             const bar = document.getElementById('overlayBar');
             const step = document.getElementById('overlayStep');
@@ -812,10 +851,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const i2 = document.getElementById('overlayItem2');
             const i3 = document.getElementById('overlayItem3');
             const submitBtn = document.getElementById('submitBtn');
+            
             if (overlay && submitBtn) {
-                overlay.style.display = 'flex';
+                // Desabilitar botão imediatamente para evitar múltiplos cliques
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando…';
+                
+                // Mostrar overlay imediatamente (o formulário já está sendo enviado)
+                overlay.style.display = 'flex';
+                
+                // Bloquear interações após um pequeno delay para garantir que o submit foi processado
+                setTimeout(function() {
+                    document.body.classList.add('overlay-active');
+                }, 100);
+                
                 // animação de etapas
                 setTimeout(function(){ step.textContent='Etapa 2/3 • Processando plano com IA…'; bar.style.width='55%'; i1.classList.add('text-muted'); }, 1800);
                 setTimeout(function(){ step.textContent='Etapa 3/3 • Enriquecendo com vídeos e salvando…'; bar.style.width='85%'; i2.classList.remove('text-muted'); }, 4800);

@@ -252,7 +252,7 @@ class OpenAIService {
         if ($ritmoSimulados !== 'nenhum') { $extras[] = "Ritmo de simulados: {$ritmoSimulados}"; }
         $extrasTexto = !empty($extras) ? ("\n\nInformações adicionais:\n- " . implode("\n- ", $extras)) : '';
         
-        $prompt = "Você é um planejador de estudos especializado em ENEM.\n\nCrie um PLANO DE ESTUDOS COMPLETO em formato JSON estruturado, para um aluno com as seguintes informações:\n\n- Ano do ENEM: {$anoEnem}\n- Nota alvo aproximada: {$notaAlvo}\n- Áreas prioritárias: {$areasTexto}\n- Nível atual: {$nivel} (iniciante, intermediário, avançado)\n- Horas disponíveis por dia: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)\n- Dias da semana disponíveis: " . implode(', ', $diasDisponiveis) . "\n- Horário preferido: {$horario}\n- Dificuldades principais: " . ($dificuldades ?: 'Não especificadas') . "{$extrasTexto}\n\nRegras específicas para ENEM:\n1. Foque na matriz de competências do ENEM\n2. Priorize as áreas indicadas: {$areasTexto}\n3. Inclua estratégias TRI (Teoria de Resposta ao Item)\n4. Divida o estudo por dia, indicando:\n   - Matérias/assuntos específicos do ENEM\n   - Tempo sugerido por atividade\n   - Tipo de atividade (teoria, questões ENEM, revisão, simulado)\n5. Inclua momentos de revisão espaçada (24h, 7 dias, 30 dias)\n6. Foque na lógica do ENEM: interpretação de texto, leitura de gráficos, resolução de questões\n7. Inclua simulados no ritmo definido: {$ritmoSimulados}\n8. Distribua o tempo diário proporcional aos pesos de disciplinas quando fornecidos ({$pesosDisciplinas})\n9. Sugerir temas de redação e lista de exercícios por área quando relevante\n\nÁreas do ENEM:\n- Linguagens, Códigos e suas Tecnologias\n- Ciências Humanas e suas Tecnologias\n- Ciências da Natureza e suas Tecnologias\n- Matemática e suas Tecnologias\n- Redação\n\n🔴🔴🔴 REGRA CRÍTICA - NÚMERO DE DIAS 🔴🔴🔴:\n- Você DEVE criar EXATAMENTE {$totalDias} DIAS DE ESTUDO\n- NÃO crie apenas 7 dias ou uma semana\n- NÃO pare antes de criar todos os {$totalDias} dias\n- O array 'dias' DEVE conter {$totalDias} objetos, um para cada dia (dia 1, dia 2, dia 3... até dia {$totalDias})\n- Cada dia deve ter pelo menos 1 tarefa\n- Distribua as áreas ao longo de TODOS os {$totalDias} dias\n- Priorize as áreas indicadas: {$areasTexto}\n- Inclua revisões regulares ao longo dos {$totalDias} dias\n- Inclua simulados periódicos conforme ritmo\n- Foque em questões estilo ENEM\n- Progressão gradual do conteúdo ao longo dos {$totalDias} dias\n\nRetorne um JSON com a seguinte estrutura:\n{\n    'titulo': 'Plano ENEM {$anoEnem} - Nota Alvo {$notaAlvo}',\n    'descricao': 'Plano de {$totalDias} dias para ENEM {$anoEnem}',\n    'dias': [\n        {\n            'dia': 1,\n            'tarefas': [\n                {\n                    'titulo': 'Título específico do tópico ENEM',\n                    'descricao': 'Descrição detalhada do que será estudado',\n                    'material': {\n                        'videos': [],\n                        'textos': ['Material de estudo específico'],\n                        'exercicios': ['Questões ENEM sobre o tópico']\n                    }\n                }\n            ]\n        },\n        {\n            'dia': 2,\n            'tarefas': [...]\n        },\n        ...\n        {\n            'dia': {$totalDias},\n            'tarefas': [...]\n        }\n    ]\n}\n\n⚠️⚠️⚠️ IMPORTANTE FINAL ⚠️⚠️⚠️:\n- Retorne APENAS o JSON válido, SEM texto adicional\n- NÃO use markdown code blocks\n- O array 'dias' DEVE ter EXATAMENTE {$totalDias} elementos\n- Foque em conteúdo específico do ENEM\n- Use questões e materiais relacionados ao ENEM\n- NÃO crie menos dias que {$totalDias}";
+        $prompt = "Você é um planejador de estudos especializado em ENEM.\n\nCrie um PLANO DE ESTUDOS COMPLETO em formato JSON estruturado, para um aluno com as seguintes informações:\n\n- Ano do ENEM: {$anoEnem}\n- Nota alvo aproximada: {$notaAlvo}\n- Áreas prioritárias: {$areasTexto}\n- Nível atual: {$nivel} (iniciante, intermediário, avançado)\n- Horas disponíveis por dia: " . round($tempoDiario / 60, 1) . " horas ({$tempoDiario} minutos)\n- Dias da semana disponíveis: " . implode(', ', $diasDisponiveis) . "\n- Horário preferido: {$horario}\n- Dificuldades principais: " . ($dificuldades ?: 'Não especificadas') . "{$extrasTexto}\n\n🔴🔴🔴 REGRA CRÍTICA - ESPECIFICIDADE DOS ASSUNTOS 🔴🔴🔴:\n- Use títulos ESPECÍFICOS e DETALHADOS para cada tarefa\n- PROIBIDO usar títulos genéricos como: 'Matemática Básica', 'Português Geral', 'História do Brasil', 'Química Orgânica'\n- USE títulos ESPECÍFICOS como: 'Função Quadrática e Vértice da Parábola', 'Análise Sintática: Sujeito e Predicado', 'Segunda Guerra Mundial: Causas e Consequências', 'Hidrocarbonetos: Alcanos, Alcenos e Alcinos'\n- Cada tarefa deve abordar um TÓPICO ESPECÍFICO e ÚNICO\n- NÃO repita os mesmos tópicos em dias diferentes\n- Seja ESPECÍFICO: em vez de 'Geometria', use 'Geometria Plana: Área e Perímetro de Triângulos'\n- Em vez de 'Literatura', use 'Literatura Brasileira: Romantismo e Obras de José de Alencar'\n- Em vez de 'Biologia Celular', use 'Células Eucariontes: Estrutura e Função das Organelas'\n\nRegras específicas para ENEM:\n1. Foque na matriz de competências do ENEM\n2. Priorize as áreas indicadas: {$areasTexto}\n3. Inclua estratégias TRI (Teoria de Resposta ao Item)\n4. Divida o estudo por dia, indicando:\n   - Matérias/assuntos ESPECÍFICOS do ENEM (não genéricos)\n   - Tempo sugerido por atividade\n   - Tipo de atividade (teoria, questões ENEM, revisão, simulado)\n5. Inclua momentos de revisão espaçada (24h, 7 dias, 30 dias)\n6. Foque na lógica do ENEM: interpretação de texto, leitura de gráficos, resolução de questões\n7. Inclua simulados no ritmo definido: {$ritmoSimulados}\n8. Distribua o tempo diário proporcional aos pesos de disciplinas quando fornecidos ({$pesosDisciplinas})\n9. Sugerir temas de redação e lista de exercícios por área quando relevante\n\nÁreas do ENEM:\n- Linguagens, Códigos e suas Tecnologias\n- Ciências Humanas e suas Tecnologias\n- Ciências da Natureza e suas Tecnologias\n- Matemática e suas Tecnologias\n- Redação\n\n🔴🔴🔴 REGRA CRÍTICA - NÚMERO DE DIAS 🔴🔴🔴:\n- Você DEVE criar EXATAMENTE {$totalDias} DIAS DE ESTUDO\n- NÃO crie apenas 7 dias ou uma semana\n- NÃO pare antes de criar todos os {$totalDias} dias\n- O array 'dias' DEVE conter {$totalDias} objetos, um para cada dia (dia 1, dia 2, dia 3... até dia {$totalDias})\n- Cada dia deve ter pelo menos 1 tarefa\n- Distribua as áreas ao longo de TODOS os {$totalDias} dias\n- Priorize as áreas indicadas: {$areasTexto}\n- Inclua revisões regulares ao longo dos {$totalDias} dias\n- Inclua simulados periódicos conforme ritmo\n- Foque em questões estilo ENEM\n- Progressão gradual do conteúdo ao longo dos {$totalDias} dias\n\nRetorne um JSON com a seguinte estrutura:\n{\n    'titulo': 'Plano ENEM {$anoEnem} - Nota Alvo {$notaAlvo}',\n    'descricao': 'Plano de {$totalDias} dias para ENEM {$anoEnem}',\n    'dias': [\n        {\n            'dia': 1,\n            'tarefas': [\n                {\n                    'titulo': 'Título ESPECÍFICO e DETALHADO do tópico ENEM (ex: Equações do 2º Grau: Fórmula de Bhaskara e Discriminante)',\n                    'descricao': 'Descrição detalhada do que será estudado neste tópico específico',\n                    'material': {\n                        'videos': [],\n                        'textos': ['Material de estudo específico'],\n                        'exercicios': ['Questões ENEM sobre o tópico']\n                    }\n                }\n            ]\n        },\n        {\n            'dia': 2,\n            'tarefas': [...]\n        },\n        ...\n        {\n            'dia': {$totalDias},\n            'tarefas': [...]\n        }\n    ]\n}\n\n⚠️⚠️⚠️ IMPORTANTE FINAL ⚠️⚠️⚠️:\n- Retorne APENAS o JSON válido, SEM texto adicional\n- NÃO use markdown code blocks\n- O array 'dias' DEVE ter EXATAMENTE {$totalDias} elementos\n- Foque em conteúdo ESPECÍFICO do ENEM (não genérico)\n- Use títulos DETALHADOS e ESPECÍFICOS para cada tarefa\n- Use questões e materiais relacionados ao ENEM\n- NÃO crie menos dias que {$totalDias}";
 
         // Acrescentar regra rígida de campos e estrutura
         $prompt .= "\n\nRegras de estrutura (OBRIGATÓRIO):\n- Use APENAS as chaves: titulo, descricao, dias, dia, tarefas, material, videos, textos, exercicios.\n- NÃO crie campos extras ou diferentes.\n- O JSON final DEVE seguir exatamente o esquema informado.\n- LEMBRE-SE: O array 'dias' DEVE ter EXATAMENTE {$totalDias} elementos.";
@@ -311,10 +311,14 @@ class OpenAIService {
         1. INFIRA automaticamente as disciplinas que caem em '{$tipoConcurso}' na banca '{$banca}'.
         2. Crie EXATAMENTE {$totalDias} dias de estudo.
         3. Cada dia deve ter 1-3 tarefas.
-        4. Cada tarefa DEVE ter título no formato: \"Disciplina: Subtema — [{$banca}]\"
-        5. Use subtemas REAIS e ESPECÍFICOS (ex: ICMS, Regência Verbal, Balanço Patrimonial, Atos Administrativos).
-        6. PROIBIDO usar títulos genéricos como 'Teoria aplicada', 'Questões da banca', 'Revisão guiada'.
+        4. Cada tarefa DEVE ter título no formato: \"Disciplina: Subtema ESPECÍFICO — [{$banca}]\"
+        5. Use subtemas REAIS, ESPECÍFICOS e DETALHADOS (ex: 'Direito Constitucional: Controle de Constitucionalidade Difuso e Concentrado', 'Português: Regência Verbal e Nominal - Verbos Transitivos', 'Contabilidade: Balanço Patrimonial - Estrutura e Classificação das Contas', 'Direito Administrativo: Atos Administrativos - Conceito, Requisitos e Espécies').
+        6. PROIBIDO usar títulos genéricos como 'Teoria aplicada', 'Questões da banca', 'Revisão guiada', 'Direito Constitucional', 'Português Básico', 'Matemática'.
         7. Cada tarefa deve ser ESPECÍFICA e ÚNICA - não repita os mesmos subtemas.
+        8. Seja DETALHADO: em vez de 'Direito Constitucional', use 'Direito Constitucional: Princípios Fundamentais da República Federativa do Brasil'
+        9. Em vez de 'Português', use 'Português: Concordância Verbal - Regras e Exceções'
+        10. Em vez de 'Matemática', use 'Matemática: Progressões Aritméticas e Geométricas - Fórmulas e Aplicações'
+        11. O subtema deve ser ESPECÍFICO o suficiente para identificar exatamente o que será estudado
         
         🔴🔴🔴 REGRA CRÍTICA - NÚMERO DE DIAS 🔴🔴🔴:
         - Você DEVE criar EXATAMENTE {$totalDias} DIAS DE ESTUDO
@@ -409,28 +413,105 @@ class OpenAIService {
     }
     
     public function generateSummaryPDF($topico, $nivel, $descricao) {
-        $prompt = "Crie um resumo auxiliar DETALHADO sobre: {$topico}
-        
-        Nível: {$nivel}
-        Descrição: {$descricao}
-        
-        Retorne APENAS Markdown formatado (sem texto adicional).
-        
-        ESTRUTURA:
-        1. # {$topico}
-        2. ## INTRODUÇÃO (2-3 parágrafos)
-        3. ## CONCEITOS FUNDAMENTAIS (4-5 conceitos com subtítulos ###)
-        4. ## EXEMPLOS PRÁTICOS (2-3 exemplos)
-        5. ## EXERCÍCIOS (10 exercícios: 4 múltipla escolha, 3 preenchimento, 2 V/F, 1 prático)
-        6. ## GABARITO (respostas explicadas)
-        7. ## DICAS DE ESTUDO (5 dicas)
-        8. ## CONCLUSÃO (1-2 parágrafos)
-        
-        Use Markdown: # títulos, ## seções, ### subtópicos, **negrito**, *itálico*, - listas, 1. numeradas.
-        Seja específico e detalhado sobre {$topico} no nível {$nivel}.";
+        $prompt = "Você é um professor especializado em explicar conceitos de forma clara e didática.
+
+Crie um resumo auxiliar COMPLETO e DETALHADO sobre: {$topico}
+
+Nível: {$nivel}
+Descrição: {$descricao}
+
+🔴🔴🔴 REGRAS CRÍTICAS 🔴🔴🔴:
+- EXPLIQUE o assunto de forma COMPLETA e DETALHADA
+- NÃO inclua exercícios, questões ou atividades práticas
+- Foque APENAS na EXPLICAÇÃO do conteúdo teórico
+- Explique TODOS os conceitos relacionados ao tópico
+- Use linguagem clara e didática, adequada ao nível {$nivel}
+- Seja ESPECÍFICO e detalhado sobre {$topico}
+- Explique de VERDADE o tópico, não apenas mencione superficialmente
+
+Retorne APENAS Markdown formatado (sem texto adicional).
+
+ESTRUTURA OBRIGATÓRIA:
+1. # {$topico}
+2. ## INTRODUÇÃO (3-4 parágrafos explicando o que é o tópico, sua importância e contexto)
+3. ## CONCEITOS FUNDAMENTAIS (5-8 conceitos principais com subtítulos ###, cada um com explicação detalhada)
+   - Para cada conceito, explique: o que é, como funciona, por que é importante, quando usar
+   - Use exemplos dentro das explicações quando necessário para clareza
+4. ## DETALHAMENTO DO CONTEÚDO (explicação aprofundada dos aspectos principais)
+   - Divida em subtópicos ### se necessário
+   - Explique relações entre conceitos
+   - Explique processos, etapas ou classificações quando aplicável
+5. ## APLICAÇÕES E CONTEXTOS (onde e como o conhecimento é aplicado na prática)
+6. ## RELAÇÕES E CONEXÕES (como este tópico se relaciona com outros assuntos)
+7. ## DICAS DE ESTUDO (5-7 dicas específicas para estudar este tópico)
+8. ## RESUMO FINAL (1-2 parágrafos sintetizando os pontos principais)
+
+⚠️⚠️⚠️ IMPORTANTE ⚠️⚠️⚠️:
+- NÃO inclua seção de EXERCÍCIOS
+- NÃO inclua seção de GABARITO
+- NÃO inclua questões ou problemas para resolver
+- Foque APENAS na EXPLICAÇÃO TEÓRICA COMPLETA do assunto
+- Explique de forma que o aluno ENTENDA REALMENTE o tópico
+- Use exemplos dentro das explicações para facilitar compreensão
+- Seja detalhado e completo, não superficial
+
+Use Markdown: # títulos, ## seções, ### subtópicos, **negrito**, *itálico*, - listas, 1. numeradas, blocos de código quando necessário.
+
+Seja ESPECÍFICO, DETALHADO e EXPLICATIVO sobre {$topico} no nível {$nivel}. Explique de VERDADE o assunto.";
         
         // Resumo deve vir em Markdown, não JSON
-        return $this->makeAPICall($prompt, 5000, 0.7, 'markdown');
+        return $this->makeAPICall($prompt, 6000, 0.7, 'markdown');
+    }
+    
+    public function generateExerciciosPDF($topico, $nivel, $descricao) {
+        $prompt = "Você é um professor especializado em criar exercícios educacionais de alta qualidade.
+
+Crie uma LISTA COMPLETA DE EXERCÍCIOS sobre: {$topico}
+
+Nível: {$nivel}
+Descrição: {$descricao}
+
+🔴🔴🔴 REGRAS CRÍTICAS 🔴🔴🔴:
+- Crie EXERCÍCIOS VARIADOS e DESAFIADORES sobre o tópico
+- Foque APENAS em exercícios, questões e atividades práticas
+- NÃO inclua explicações teóricas extensas (apenas breves contextualizações quando necessário)
+- Os exercícios devem testar a compreensão REAL do tópico {$topico}
+- Use linguagem clara e adequada ao nível {$nivel}
+- Seja ESPECÍFICO - os exercícios devem ser sobre {$topico}, não genéricos
+- Varie os tipos de exercícios para melhor aprendizado
+
+Retorne APENAS Markdown formatado (sem texto adicional).
+
+ESTRUTURA OBRIGATÓRIA:
+1. # Lista de Exercícios: {$topico}
+2. ## INTRODUÇÃO (1-2 parágrafos breves contextualizando os exercícios)
+3. ## EXERCÍCIOS DE MÚLTIPLA ESCOLHA (10-15 questões)
+   - Cada questão deve ter: enunciado claro, 4-5 alternativas (a, b, c, d, e), e indicação da resposta correta
+   - Use formato: ### Questão X, depois o enunciado, depois as alternativas
+4. ## EXERCÍCIOS DE PREENCHIMENTO (5-8 questões)
+   - Questões onde o aluno deve completar lacunas ou responder diretamente
+5. ## EXERCÍCIOS VERDADEIRO OU FALSO (5-8 questões)
+   - Afirmações que devem ser classificadas como verdadeiras ou falsas
+6. ## EXERCÍCIOS PRÁTICOS/ABERTOS (3-5 questões)
+   - Questões que exigem desenvolvimento, cálculo, explicação ou análise
+7. ## GABARITO COMENTADO
+   - Para cada exercício, forneça a resposta correta e uma explicação breve do porquê
+   - Explique o raciocínio necessário para chegar à resposta
+8. ## DICAS PARA RESOLUÇÃO (5-7 dicas específicas para resolver os exercícios deste tópico)
+
+⚠️⚠️⚠️ IMPORTANTE ⚠️⚠️⚠️:
+- Foque APENAS em exercícios e questões
+- NÃO inclua explicações teóricas extensas (apenas no gabarito comentado)
+- Os exercícios devem ser sobre {$topico} especificamente
+- Varie a dificuldade dentro do nível {$nivel}
+- Seja criativo e use diferentes formatos de questões
+
+Use Markdown: # títulos, ## seções, ### subtópicos, **negrito**, *itálico*, - listas, 1. numeradas, blocos de código quando necessário.
+
+Crie exercícios ESPECÍFICOS, VARIADOS e DESAFIADORES sobre {$topico} no nível {$nivel}.";
+        
+        // Exercícios devem vir em Markdown, não JSON
+        return $this->makeAPICall($prompt, 6000, 0.7, 'markdown');
     }
     
     private function makeAPICall($prompt, $maxTokens = 2000, $temperature = 0.7, $mode = 'json') {
