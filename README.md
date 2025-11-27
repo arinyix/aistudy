@@ -1,5 +1,7 @@
 # 🧠 AIStudy - Plataforma de Estudos Inteligente
 
+Aluna: Maria de Fatima Mota da Silva
+
 Uma plataforma web completa desenvolvida em **PHP**, **CSS**, **JavaScript** e **MySQL** que utiliza **inteligência artificial (ChatGPT)** para criar rotinas de estudos personalizadas e cronogramas inteligentes.
 
 ## ✨ Funcionalidades Principais
@@ -971,3 +973,4 @@ O arquivo `seed.sql` inclui usuários de teste:
 
 *Versão 1.0 - Sistema completo de estudos inteligentes* 🧠✨
 #
+
